@@ -3,14 +3,14 @@
 
 # ---- 向量化与精排（本地 bge 系列，无需 API key，可复现）----
 # embedding: BAAI/bge-small-zh-v1.5 ；rerank（P1）: BAAI/bge-reranker-base
-sentence-transformers>=3.0.0
+sentence-transformers==6.0.0
 
 # ---- 向量检索库 ----
-faiss-cpu>=1.8.0
+faiss-cpu==1.15.0
 
 # ---- 词法检索（BM25 短锚句词面匹配）----
-rank-bm25>=0.2.2
-jieba>=0.42.1
+rank-bm25==0.2.2
+jieba==0.42.1
 
 # ---- Agent loop（Claude SDK 手写 while 循环）----
-anthropic>=0.40.0
+anthropic==0.125.0
