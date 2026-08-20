@@ -1,0 +1,11 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# IDE
+.idea/
+
+# 检索索引产物（M1 建索引后落盘的文件不入库）
+*.index
+*.faiss
