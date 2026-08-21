@@ -1,37 +1,73 @@
 # -*- coding: utf-8 -*-
 """
-语料清洗脚本：原始 HTML -> 干净的法律条文纯文本
+语料清洗脚本：原始 HTML -> 干净的法律条文纯文本（配置驱动，支持多部法）
 
 用法：
     python scripts/preprocess_corpus.py
 
-输入：corpus/raw/labor_contract_law_raw.html  （中国人大网官方原文，抓取后原样保留）
-输出：corpus/labor_contract_law.txt           （清洗后的最终语料，供切分/建索引使用）
+输入：corpus/raw/*.html          （中国人大网官方原文，抓取后原样保留）
+输出：corpus/*.txt               （清洗后的最终语料，供切分/建索引使用）
 
 设计要点：
     1. 纯标准库，零第三方依赖，任何环境可重跑（可复现）。
-    2. 清洗目标不是"好看"，而是让下游按"第X条"正则切分时不踩坑。
-    3. 结尾有对账验证：条数不等于已知的 98 条就直接报错，防止"洗坏"。
+    2. 一部法 = LAW_CONFIGS 里的一个配置项；换法/加法只改配置，不动逻辑。
+    3. 清洗目标不是"好看"，而是让下游按"第X条"正则切分时不踩坑。
+    4. 每部法结尾都有对账验证：条数不等于已知条数就报错，防止"洗坏"。
 """
 import re
 from pathlib import Path
 from html.parser import HTMLParser
 
-# ---------- 路径配置 ----------
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-RAW_HTML = PROJECT_ROOT / "corpus" / "raw" / "labor_contract_law_raw.html"
-CLEAN_TXT = PROJECT_ROOT / "corpus" / "labor_contract_law.txt"
 
-# 法律已知条数，用于清洗后的对账验证（来源：人大网原文共 98 条）
-EXPECTED_ARTICLES = 98
-
-# 写入最终文件的来源注释，保证"可复现"（数据从哪来、什么时候抓的）
-SOURCE_HEADER = """\
-# 中华人民共和国劳动合同法
-# 来源：中国人大网 http://www.npc.gov.cn/npc/c1773/c2518/c12898/201905/t20190523_46320.html
-# 2007年6月29日通过，2008年1月1日施行，2012年12月28日修正
-# 抓取日期：2026-08-20
-"""
+# ---------- 语料配置（每部法一项） ----------
+# key        : 文件名前缀
+# raw        : 原始 HTML 路径
+# clean      : 清洗后 txt 输出路径
+# expected   : 该法已知条数（对账验证用）
+# last_article : 末条的条号前缀，用于从后往前定位正文终点
+# source     : 写入产物的来源注释（可复现：从哪来、何时抓取）
+LAW_CONFIGS = [
+    {
+        "key": "labor_contract_law",
+        "raw": "corpus/raw/labor_contract_law.html",
+        "clean": "corpus/labor_contract_law.txt",
+        "expected": 98,
+        "last_article": "第九十八条",
+        "source": (
+            "# 中华人民共和国劳动合同法\n"
+            "# 来源：中国人大网 http://www.npc.gov.cn/npc/c1773/c2518/c12898/201905/t20190523_46320.html\n"
+            "# 2007年6月29日通过，2008年1月1日施行，2012年12月28日修正\n"
+            "# 抓取日期：2026-08-20\n"
+        ),
+    },
+    {
+        "key": "labor_law",
+        "raw": "corpus/raw/labor_law.html",
+        "clean": "corpus/labor_law.txt",
+        "expected": 107,
+        "last_article": "第一百零七条",
+        "source": (
+            "# 中华人民共和国劳动法\n"
+            "# 来源：中国人大网 http://www.npc.gov.cn/zgrdw/npc/zt/2006-03/20/content_347911.htm\n"
+            "# 1994年7月5日通过，1995年1月1日施行（2009、2018年有修正，本文件为人大网发布原文）\n"
+            "# 抓取日期：2026-08-21\n"
+        ),
+    },
+    {
+        "key": "labor_dispute_arbitration_law",
+        "raw": "corpus/raw/labor_dispute_arbitration_law.html",
+        "clean": "corpus/labor_dispute_arbitration_law.txt",
+        "expected": 54,
+        "last_article": "第五十四条",
+        "source": (
+            "# 中华人民共和国劳动争议调解仲裁法\n"
+            "# 来源：中国人大网 http://www.npc.gov.cn/zgrdw/npc/zt/2008-02/23/content_1494727.htm\n"
+            "# 2007年12月29日通过，2008年5月1日施行\n"
+            "# 抓取日期：2026-08-21\n"
+        ),
+    },
+]
 
 
 def read_text(path: Path) -> str:
@@ -87,12 +123,12 @@ def extract_body(html: str) -> list:
     return [line.strip() for line in text.splitlines() if line.strip()]
 
 
-def slice_body(lines: list) -> list:
+def slice_body(lines: list, last_article: str) -> list:
     """步骤 3：定位正文起止，切掉页头 / 目录 / 页脚。
 
     - 起点：页首的「目录」里出现过一次"第一章总则"，正文里还会再出现一次，
       所以取"第一章总则"的第二次出现作为正文起点。
-    - 终点：末条是"第九十八条"，从后往前找，正文就到这里为止。
+    - 终点：末条（如"第九十八条"）从后往前找，正文就到这里为止。
     """
     body_start, seen = None, 0
     for i, line in enumerate(lines):
@@ -102,20 +138,20 @@ def slice_body(lines: list) -> list:
                 body_start = i
                 break
     if body_start is None:
-        raise RuntimeError("未找到正文起点，请检查原始文件是否完整")
+        raise RuntimeError("未找到正文起点（第一章总则），请检查原始文件是否完整")
 
     body_end = None
     for i in range(len(lines) - 1, -1, -1):
-        if lines[i].startswith("第九十八条"):
+        if lines[i].startswith(last_article):
             body_end = i + 1
             break
     if body_end is None:
-        raise RuntimeError("未找到末条，请检查原始文件是否完整")
+        raise RuntimeError(f"未找到末条（{last_article}），请检查原始文件是否完整")
 
     return lines[body_start:body_end]
 
 
-def validate(body: list) -> None:
+def validate(body: list, expected: int) -> None:
     """步骤 4：对账验证——行首条号数必须等于已知条数。
 
     清洗最怕把正文洗丢。用正则数一遍行首的"第X条"，和已知条数对不上就报错。
@@ -123,26 +159,39 @@ def validate(body: list) -> None:
     """
     text = "\n".join(body)
     n = len(re.findall(r"^第[一二三四五六七八九十百零\d]+条", text, re.M))
-    if n != EXPECTED_ARTICLES:
-        raise RuntimeError(f"条数校验失败：期望 {EXPECTED_ARTICLES} 条，实际 {n} 条")
-    print(f"[OK] 条数校验通过：{n} 条")
+    if n != expected:
+        raise RuntimeError(f"条数校验失败：期望 {expected} 条，实际 {n} 条")
+    print(f"    [OK] 条数校验通过：{n} 条")
+
+
+def process(cfg: dict) -> None:
+    """清洗单部法：读 -> 去壳 -> 切正文 -> 对账 -> 写产物。"""
+    key = cfg["key"]
+    raw_path = PROJECT_ROOT / cfg["raw"]
+    clean_path = PROJECT_ROOT / cfg["clean"]
+
+    print(f"[{key}]")
+    print(f"    读取原始文件：{cfg['raw']}")
+    html = read_text(raw_path)
+
+    print("    去壳 + 清理空白 ...")
+    lines = extract_body(html)
+
+    print("    切掉页头/目录/页脚 ...")
+    body = slice_body(lines, cfg["last_article"])
+
+    print("    对账验证 ...")
+    validate(body, cfg["expected"])
+
+    clean_path.write_text(cfg["source"] + "\n" + "\n".join(body), encoding="utf-8")
+    print(f"    [OK] 已生成 {cfg['clean']}（{len(body)} 行）")
 
 
 def main() -> None:
-    print(f"[1/4] 读取原始文件：{RAW_HTML.relative_to(PROJECT_ROOT)}")
-    html = read_text(RAW_HTML)
-
-    print("[2/4] 去壳 + 清理空白 ...")
-    lines = extract_body(html)
-
-    print("[3/4] 切掉页头/目录/页脚 ...")
-    body = slice_body(lines)
-
-    print("[4/4] 对账验证 ...")
-    validate(body)
-
-    CLEAN_TXT.write_text(SOURCE_HEADER + "\n" + "\n".join(body), encoding="utf-8")
-    print(f"[OK] 已生成 {CLEAN_TXT.relative_to(PROJECT_ROOT)}（{len(body)} 行）")
+    print(f"共 {len(LAW_CONFIGS)} 部法待清洗\n")
+    for cfg in LAW_CONFIGS:
+        process(cfg)
+    print("\n全部完成")
 
 
 if __name__ == "__main__":
