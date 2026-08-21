@@ -15,3 +15,6 @@ corpus/chunks.json
 
 # 模型文件（由 scripts/download_model.py 下载，不入库）
 models/
+
+# 密钥（M3 agent 的 DeepSeek key，绝不能入库）
+.env

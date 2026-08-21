@@ -15,5 +15,5 @@ faiss-cpu==1.15.0
 rank-bm25==0.2.2
 jieba==0.42.1
 
-# ---- Agent loop（Claude SDK 手写 while 循环）----
-anthropic==0.125.0
+# ---- Agent loop（DeepSeek OpenAI 兼容接口，手写 while 循环）----
+openai==3.3.1
