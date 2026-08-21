@@ -64,14 +64,21 @@ class Retriever:
         return cls(index=index, chunks=chunks)
 
     # ---------- 检索 ----------
-    def search(self, query: str, k: int = 5) -> list:
-        """查询 -> top-k chunk 元数据（带 score），按相似度降序。"""
+    def _ranked(self, query: str, k: int) -> list[tuple[int, float]]:
+        """内部：返回 top-k 的 (chunk下标, 向量分数)，供 RRF 融合用。"""
         q = embed_query(query).reshape(1, -1)
         scores, ids = self.index.search(q, k)
         return [
-            {**self.chunks[i], "score": round(float(s), 4)}
+            (int(i), float(s))
             for s, i in zip(scores[0], ids[0])
             if i >= 0  # 索引条数不足 k 时，多余槽位是 -1，跳过
+        ]
+
+    def search(self, query: str, k: int = 5) -> list:
+        """对外：返回 top-k chunk 元数据（带 score），按相似度降序。"""
+        return [
+            {**self.chunks[i], "score": round(s, 4)}
+            for i, s in self._ranked(query, k)
         ]
 
 
