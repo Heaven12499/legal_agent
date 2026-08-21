@@ -69,6 +69,32 @@ LAW_CONFIGS = [
             "# 2007年12月29日通过，2008年5月1日施行\n"
         ),
     },
+    {
+        "key": "labor_contract_regulation",
+        "name": "劳动合同法实施条例",
+        "raw": "corpus/raw/labor_contract_regulation.html",
+        "clean": "corpus/labor_contract_regulation.txt",
+        "expected": 38,
+        "last_article": "第三十八条",
+        "source": (
+            "# 中华人民共和国劳动合同法实施条例\n"
+            "# 来源：中国人大网 http://www.npc.gov.cn/npc/c2/c188/201905/t20190522_122802.html\n"
+            "# 2008年9月3日国务院第25次常务会议通过，2008年9月18日公布，自公布之日起施行（国务院令第535号）\n"
+        ),
+    },
+    {
+        "key": "social_insurance_law",
+        "name": "社会保险法",
+        "raw": "corpus/raw/social_insurance_law.html",
+        "clean": "corpus/social_insurance_law.txt",
+        "expected": 98,
+        "last_article": "第九十八条",
+        "source": (
+            "# 中华人民共和国社会保险法（2018年修正本）\n"
+            "# 来源：中国人大网 http://www.npc.gov.cn/c2/c30834/201905/t20190521_296659.html\n"
+            "# 2010年10月28日通过，2011年7月1日施行，2018年12月29日修正\n"
+        ),
+    },
 ]
 
 
@@ -128,19 +154,17 @@ def extract_body(html: str) -> list:
 def slice_body(lines: list, last_article: str) -> list:
     """步骤 3：定位正文起止，切掉页头 / 目录 / 页脚。
 
-    - 起点：页首的「目录」里出现过一次"第一章总则"，正文里还会再出现一次，
-      所以取"第一章总则"的第二次出现作为正文起点。
+    - 起点：要兼容两种官网页面——
+        带目录的页（人大网多数）：页首「目录」出现一次"第一章总则"，正文再出现一次，
+            取第二次出现为正文起点；
+        不带目录的页（如本条例）：只有正文开头一次，取第一次出现。
+      统一写法：列出所有出现位置，>=2 次取第 2 个，否则取第 1 个。
     - 终点：末条（如"第九十八条"）从后往前找，正文就到这里为止。
     """
-    body_start, seen = None, 0
-    for i, line in enumerate(lines):
-        if line == "第一章总则":
-            seen += 1
-            if seen == 2:
-                body_start = i
-                break
-    if body_start is None:
+    occurrence = [i for i, line in enumerate(lines) if line == "第一章总则"]
+    if not occurrence:
         raise RuntimeError("未找到正文起点（第一章总则），请检查原始文件是否完整")
+    body_start = occurrence[1] if len(occurrence) >= 2 else occurrence[0]
 
     body_end = None
     for i in range(len(lines) - 1, -1, -1):
