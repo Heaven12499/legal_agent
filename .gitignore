@@ -9,3 +9,9 @@ __pycache__/
 # 检索索引产物（M1 建索引后落盘的文件不入库）
 *.index
 *.faiss
+
+# 切分派生产物（chunks.json 可由 python -m core.chunking 重新生成）
+corpus/chunks.json
+
+# 模型文件（由 scripts/download_model.py 下载，不入库）
+models/

@@ -4,6 +4,9 @@
 # ---- 向量化与精排（本地 bge 系列，无需 API key，可复现）----
 # embedding: BAAI/bge-small-zh-v1.5 ；rerank（P1）: BAAI/bge-reranker-base
 sentence-transformers==6.0.0
+# 模型下载脚本直接 import 的（间接依赖也显式钉死，保证可复现）
+huggingface_hub==1.28.0
+numpy==2.5.2
 
 # ---- 向量检索库 ----
 faiss-cpu==1.15.0

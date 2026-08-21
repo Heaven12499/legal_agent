@@ -22,6 +22,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 # ---------- 语料配置（每部法一项） ----------
 # key        : 文件名前缀
+# name       : 法律显示名（切分模块写元数据用）
 # raw        : 原始 HTML 路径
 # clean      : 清洗后 txt 输出路径
 # expected   : 该法已知条数（对账验证用）
@@ -30,6 +31,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 LAW_CONFIGS = [
     {
         "key": "labor_contract_law",
+        "name": "劳动合同法",
         "raw": "corpus/raw/labor_contract_law.html",
         "clean": "corpus/labor_contract_law.txt",
         "expected": 98,
@@ -38,11 +40,11 @@ LAW_CONFIGS = [
             "# 中华人民共和国劳动合同法\n"
             "# 来源：中国人大网 http://www.npc.gov.cn/npc/c1773/c2518/c12898/201905/t20190523_46320.html\n"
             "# 2007年6月29日通过，2008年1月1日施行，2012年12月28日修正\n"
-            "# 抓取日期：2026-08-20\n"
         ),
     },
     {
         "key": "labor_law",
+        "name": "劳动法",
         "raw": "corpus/raw/labor_law.html",
         "clean": "corpus/labor_law.txt",
         "expected": 107,
@@ -52,11 +54,11 @@ LAW_CONFIGS = [
             "# 来源：广东省人民政府门户网站（2018年修正本，原载中国人大网）\n"
             "#   http://www.gd.gov.cn/zwgk/wjk/zcfgk/content/mpost_2532147.html\n"
             "# 1994年7月5日通过，1995年1月1日施行，2009年第一次修正，2018年第二次修正\n"
-            "# 抓取日期：2026-08-21\n"
         ),
     },
     {
         "key": "labor_dispute_arbitration_law",
+        "name": "劳动争议调解仲裁法",
         "raw": "corpus/raw/labor_dispute_arbitration_law.html",
         "clean": "corpus/labor_dispute_arbitration_law.txt",
         "expected": 54,
@@ -65,7 +67,6 @@ LAW_CONFIGS = [
             "# 中华人民共和国劳动争议调解仲裁法\n"
             "# 来源：中国人大网 http://www.npc.gov.cn/zgrdw/npc/zt/2008-02/23/content_1494727.htm\n"
             "# 2007年12月29日通过，2008年5月1日施行\n"
-            "# 抓取日期：2026-08-21\n"
         ),
     },
 ]
