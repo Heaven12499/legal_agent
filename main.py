@@ -1,15 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-法律 RAG 助手命令行入口（M3）。
-
-把口语问题交给手写 agent 循环：LLM 先改写查询，再反复检索，最后给带条号引用的答案。
+法律 RAG 助手命令行入口：把口语问题交给 agent 循环，打印检索 trace + 带引用的答案。
 
 用法：
     python main.py "被裁员有没有赔偿"          # 单发，打印检索 trace + 最终答案
     python main.py "被裁员有没有赔偿" --quiet  # 只打印最终答案
-    python main.py --repl                      # 交互模式（每条问题一行）
-
-首次运行前：把 .env.example 复制为 .env 并填入 DEEPSEEK_API_KEY。
+    python main.py --repl                      # 交互模式
 """
 import os
 import sys
@@ -20,10 +16,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 
 def load_dotenv() -> None:
-    """极简 .env 加载：读 KEY=VALUE 行进 os.environ，不覆盖已有环境变量。
-
-    手写 ~15 行，不引 python-dotenv——和 preprocess/chunking 一样保持零第三方依赖。
-    """
+    """读 .env（KEY=VALUE 行）进 os.environ，不覆盖已有环境变量。"""
     env_path = PROJECT_ROOT / ".env"
     if not env_path.exists():
         return
@@ -37,7 +30,7 @@ def load_dotenv() -> None:
 
 
 def print_result(result: dict) -> None:
-    """打印 agent 结果：先 trace（展示改写过程），再最终答案。"""
+    """打印 agent 结果：先 trace，再最终答案。"""
     if result.get("trace"):
         print("─" * 60)
         print("检索 trace（LLM 每轮怎么检索 / 改写的）")

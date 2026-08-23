@@ -1,17 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-agent 的工具层：检索工具的 schema + 执行器。
+agent 的工具层：retrieve 工具的 function calling schema + 执行器。
 
-只暴露一个工具 retrieve——查询改写不是单独工具，而是 agent 循环里自然发生的：
-检索一次发现结果不足以回答，就换个法律术语再检索（见 loop.py 的 while 循环）。
-
-设计要点：
-    1. schema 用 OpenAI function calling 格式，description 里就把「用法律术语」讲清楚，
-       引导 LLM 第一次检索就尽量法言法语，而不是塞口语词进来。
-    2. 执行器直接复用 core.hybrid.get_hybrid().search()——向量+BM25+RRF 已经做好了，
-       agent 层不碰检索细节，只负责把 chunk 元数据格式化成 LLM 读得懂的文本。
-    3. 格式化复用 verify_retrieval.py 的 label 逻辑：条文→「法律+条号」，案例→「案例编号」，
-       两处口径一致，避免一个条号两种写法。
+查询改写不设单独工具——检索一次不够就换法律术语再检，在 loop 循环里自然发生。
+执行器直接复用 core.hybrid 的混合检索；label 口径与 verify_retrieval.py 一致。
 """
 import sys
 from pathlib import Path
@@ -62,10 +54,7 @@ def format_chunk(chunk: dict, idx: int) -> str:
 
 
 def retrieve(query: str, k: int = 5) -> dict:
-    """执行一次检索，返回 {text: 给 LLM 看的格式化文本, labels: 命中的展示名列表}。
-
-    labels 供 loop.py 记录 trace（每轮检索命中了哪些条文/案例），面试展示「改写」过程用。
-    """
+    """执行一次检索，返回 {text: 给 LLM 看的文本, labels: 命中展示名（供 trace 记录）}。"""
     hits = get_hybrid().search(query, k)
     labels = [label(h) for h in hits]
     if not hits:

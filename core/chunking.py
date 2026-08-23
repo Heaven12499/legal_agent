@@ -1,25 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-切分模块：把清洗好的法条 txt 切成"一条 = 一个 chunk"，并附上元数据。
-M1 之后扩展：再把 corpus/cases.json 里的官方案例合并成"案例"chunk，
-两种类型混在同一个 chunks.json / 同一个索引里（M2.5 案例语料）。
-
-M1 的第一步，也是整条 RAG 管线的数据入口。设计要点：
-    1. 纯标准库（re / json），零第三方依赖，任何环境可复现。
-    2. 语料清单直接复用 scripts/preprocess_corpus.py 的 LAW_CONFIGS，
-       换法/加法只改那一处配置，清洗和切分用同一份清单，不重复维护。
-    3. 一个 chunk = 一部法的一条完整法条（含多段续行），元数据：
-       - 法律   ：哪部法（M3 回答引用、M4 引用校验都要靠它）
-       - 章 / 节：条文所在章节（展示、按章过滤用）
-       - 条号   ：原文写法（"第十九条"），检索结果的"第X条"标志
-       - 序数   ：条号转阿拉伯数字（19），M5 评测对账用
-       - 文本   ：完整条文（含条号开头）
-    4. 结尾对账：切出来的条数必须等于已知条数，防止切丢。
-    5. 案例 chunk 一个案例 = 一个 chunk，元数据带 类型: 案例、案例编号、
-       裁判要旨、相关法条、基本案情；文本按固定模板拼装，保证可检索。
-
-用法：
-    python -m core.chunking        # 从项目根目录运行，输出 corpus/chunks.json
+切分：法条 txt -> "一条 = 一个 chunk"（含 章/节/条号/序数/文本 元数据）。
+M2.5 起把 corpus/cases.json 官方案例合并成"案例"chunk，与条文混同一索引。
+语料清单复用 preprocess_corpus.LAW_CONFIGS，纯标准库。
 """
 import json
 import re
@@ -59,15 +42,7 @@ ARTICLE_RE = re.compile(r"^第([一二三四五六七八九十百零\d]+)条")
 
 
 def chunk_file(clean_path: Path, law_name: str, expected: int) -> list:
-    """切分单部法：逐行扫，按行首的 章/节/条 特征归类。
-
-    规则：
-      - '#' 开头是来源注释行，跳过；
-      - 命中"第X章" -> 更新当前章，旧节失效（换章必换节）；
-      - 命中"第X节" -> 更新当前节；
-      - 命中"第X条" -> 开一个新 chunk，把当前章/节/条号记进去；
-      - 其他行       -> 是上一条的续行（多段法条的下一段），追加进上一条的文本。
-    """
+    """逐行扫，按行首 章/节/条 特征切分单部法；非特征行续接到上一条末尾。"""
     chunks = []
     chapter = section = None
     for line in clean_path.read_text(encoding="utf-8").splitlines():
@@ -100,12 +75,7 @@ def chunk_file(clean_path: Path, law_name: str, expected: int) -> list:
 
 
 def load_case_chunks(start_index: int) -> list:
-    """读 cases.json，把每个官方案例拼成一个"案例"chunk。
-
-    一个案例 = 一个 chunk，序数从条文之后续排。文本按固定模板拼装——
-    裁判要旨/争议焦点/相关法条/基本案情 都会进向量化和 BM25 分词，
-    所以口语化查询有机会撞上案例里的法言法语。
-    """
+    """读 cases.json，一个官方案例 = 一个"案例"chunk，序数从条文之后续排。"""
     cases = json.loads(CASES_PATH.read_text(encoding="utf-8"))
     chunks = []
     for n, c in enumerate(cases, start=start_index):

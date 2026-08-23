@@ -1,21 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-retriever 模块：FAISS 向量检索，返回带元数据的 top-k chunk。
-
-设计要点：
-    1. IndexFlatIP + 归一化向量 => 打分就是余弦相似度（bge 推荐的做法）。
-    2. 索引落盘：build() 建一次存 corpus/chunks.faiss，之后 load() 秒加载。
-       向量下标与 chunks 列表下标一一对应，下标就是"主键"。
-    3. 懒加载单例 get_retriever()：M3 的 agent 循环只调这一个入口，
-       首次检索时建/读索引，之后复用，不重复构建。
-    4. 语料只有 259 条，flat 精确检索已经足够快；不做 IVF 量化，
-       理由简单：规模小，精确结果最可信，面试也最好讲。
-
-用法：
-    from core.retriever import get_retriever
-    r = get_retriever()
-    for hit in r.search("经济补偿金怎么算"):
-        print(hit["法律"], hit["条号"], round(hit["score"], 4))
+FAISS 向量检索：IndexFlatIP + 归一化向量 => 打分即余弦相似度。
+索引落盘复用（向量下标即 chunk 主键），懒加载单例 get_retriever()。
 """
 import json
 from pathlib import Path

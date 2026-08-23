@@ -1,17 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-embedding 模块：把 chunk 文本转成向量，供 FAISS 建索引/检索。
-
-模型：BAAI/bge-small-zh-v1.5（512 维），已由 scripts/download_model.py
-     下载到本地 models/ 目录 —— 运行时零网络依赖，可复现。
-
-设计要点：
-    1. 单例懒加载：模型 ~95MB，进程内只加载一次；
-       M3 的 agent 循环会反复检索，不能每次查询都重载模型。
-    2. bge 官方检索最佳实践：查询句要加检索指令前缀，文档句不加，
-       查询和文档的向量才在同一个"语义空间"里可比。
-    3. normalize_embeddings=True：向量归一化后，FAISS 的内积打分
-       就等于余弦相似度，语义相似度排序正确。
+文本 -> 向量：BAAI/bge-small-zh-v1.5（512 维），本地 models/ 加载，零网络依赖。
+查询句加检索指令前缀（bge 官方最佳实践）、向量归一化——内积打分即余弦相似度。
 """
 from pathlib import Path
 

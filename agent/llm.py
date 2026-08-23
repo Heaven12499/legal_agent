@@ -1,23 +1,28 @@
 # -*- coding: utf-8 -*-
 """
-LLM 客户端：DeepSeek（OpenAI 兼容接口）的懒加载单例。
-
-设计要点：
-    1. 只依赖 openai SDK，走 DeepSeek 官方端点 api.deepseek.com，模型 deepseek-chat。
-       base_url / key / model 全部 env 可配，换网关/换模型只改 .env 不动代码。
-    2. 单例懒加载：agent 循环里每轮都要调 LLM，进程内只建一次 client。
-    3. key 缺省时给出明确报错，而不是 SDK 的晦涩异常——方便一眼定位去配 .env。
-
-env 约定（由 main.py 先把 .env 载入 os.environ，这里只读）：
-    OPENAI_BASE_URL   默认 https://api.deepseek.com
-    DEEPSEEK_API_KEY  必填（DeepSeek 官方 key）；兼容 OPENAI_API_KEY
-    LLM_MODEL         默认 deepseek-chat
+LLM 客户端：DeepSeek（OpenAI 兼容接口）懒加载单例 + .env 加载。
+base_url / key / model 全部 env 可配，换网关换模型只改 .env。
 """
 import os
+from pathlib import Path
 
 from openai import OpenAI
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 _instance = None
+
+
+def load_dotenv() -> None:
+    """读 .env（KEY=VALUE 行）进 os.environ，不覆盖已有环境变量。"""
+    env_path = PROJECT_ROOT / ".env"
+    if not env_path.exists():
+        return
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
 
 
 def get_client() -> OpenAI:
@@ -37,3 +42,7 @@ def get_client() -> OpenAI:
 def get_model() -> str:
     """读模型名（env 可配，默认 deepseek-chat）。"""
     return os.environ.get("LLM_MODEL", "deepseek-chat")
+
+
+# 模块导入即加载 .env，各入口不必各自 load
+load_dotenv()
