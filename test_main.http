@@ -1,11 +1,35 @@
-# Test your FastAPI endpoints
+# Test your FastAPI endpoints（/api 前缀，前端分离后纯 API）
 
-GET http://127.0.0.1:8000/
+GET http://127.0.0.1:8000/api/chat/sessions
 Accept: application/json
 
 ###
 
-GET http://127.0.0.1:8000/hello/User
+POST http://127.0.0.1:8000/api/chat
+Content-Type: application/json
+
+{
+  "message": "被裁员有没有赔偿",
+  "session_id": "test-session-1"
+}
+
+###
+
+POST http://127.0.0.1:8000/api/chat
+Content-Type: application/json
+
+{
+  "message": "那经济补偿具体按什么标准算",
+  "session_id": "test-session-1"
+}
+
+###
+
+DELETE http://127.0.0.1:8000/api/chat/sessions/test-session-1
+
+###
+
+GET http://127.0.0.1:8000/api/chat/sessions/test-session-1/history
 Accept: application/json
 
 ###

@@ -21,13 +21,17 @@ def _dispatch(name: str, args: dict) -> dict:
     return {"text": f"未知工具：{name}", "labels": []}
 
 
-def run(query: str, max_rounds: int = 6) -> dict:
-    """跑一轮 agent，返回 {"answer": str, "rounds": int, "trace": [...]}。"""
+def run(query: str, history: list | None = None, max_rounds: int = 6) -> dict:
+    """跑一轮 agent，返回 {"answer": str, "rounds": int, "trace": [...]}。
+
+    history 是上一轮对话的干净 user/assistant 轮次（不含中间 tool 消息），
+    拼在 system 之后、本轮 query 之前。
+    """
     client, model = get_client(), get_model()
-    messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": query},
-    ]
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    if history:
+        messages.extend(history)
+    messages.append({"role": "user", "content": query})
     trace = []
 
     for rnd in range(1, max_rounds + 1):

@@ -11,6 +11,9 @@
 import sys
 from pathlib import Path
 
+# Windows 控制台默认 GBK，print ✅/❌ 会崩；固定 stdout 为 UTF-8
+sys.stdout.reconfigure(encoding="utf-8")
+
 # 把项目根目录放进 sys.path，保证从任意目录直接 python 本脚本都能 import core
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 

@@ -1,80 +1,87 @@
 # -*- coding: utf-8 -*-
 """
-法律 RAG 助手命令行入口：把口语问题交给 agent 循环，打印检索 trace + 带引用的答案。
+法律 RAG 助手 Web 服务（M4）：纯 API 后端，与 Vue 前端分离部署。
 
-用法：
-    python main.py "被裁员有没有赔偿"          # 单发，打印检索 trace + 最终答案
-    python main.py "被裁员有没有赔偿" --quiet  # 只打印最终答案
-    python main.py --repl                      # 交互模式
+启动（开发，双进程）：
+    python main.py                     # API 在 127.0.0.1:8000
+    cd frontend && npm run dev         # 前端在 5173，/api 代理到 8000
+
+启动（演示，单进程）：
+    cd frontend && npm run build
+    python main.py                     # 直接开 http://127.0.0.1:8000
+
+API（/api 前缀）：
+    POST /api/chat  {"message": "...", "session_id": "..."} -> {"answer", "session_id", "trace"}
+                session_id 缺省时服务端生成并返回，前端存下来续传即多轮。
 """
-import os
 import sys
+import uuid
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+import uvicorn
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
-def load_dotenv() -> None:
-    """读 .env（KEY=VALUE 行）进 os.environ，不覆盖已有环境变量。"""
-    env_path = PROJECT_ROOT / ".env"
-    if not env_path.exists():
-        return
-    for line in env_path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        key, value = key.strip(), value.strip().strip('"').strip("'")
-        os.environ.setdefault(key, value)
+from agent import session
+from agent.loop import run
 
+app = FastAPI(title="法律 RAG 助手")
 
-def print_result(result: dict) -> None:
-    """打印 agent 结果：先 trace，再最终答案。"""
-    if result.get("trace"):
-        print("─" * 60)
-        print("检索 trace（LLM 每轮怎么检索 / 改写的）")
-        for t in result["trace"]:
-            hits = "、".join(t["hits"]) if t["hits"] else "（未命中）"
-            print(f"  第{t['round']}轮 retrieve：{t['query']!r}  →  {hits}")
-        print("─" * 60)
-    print(result["answer"])
+# 前后端分离：dev 时前端 5173 跨源直连本 API，放行浏览器跨域
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
-def main() -> None:
-    load_dotenv()
+class ChatRequest(BaseModel):
+    message: str
+    session_id: str | None = None
 
-    args = sys.argv[1:]
-    quiet = "--quiet" in args
-    if "--repl" in args:
-        from agent.loop import run
-        print("法律 RAG 助手（输入 exit 退出）")
-        while True:
-            q = input("\n> ").strip()
-            if q.lower() in ("exit", "quit", "q"):
-                break
-            if not q:
-                continue
-            result = run(q)
-            if quiet:
-                print(result["answer"])
-            else:
-                print_result(result)
-        return
 
-    if not args or args[0].startswith("--"):
-        print(__doc__.strip())
-        return
+@app.post("/api/chat")
+def chat(req: ChatRequest) -> dict:
+    """单轮对话：带 history 调 agent，答案落回会话存储。"""
+    sid = req.session_id or uuid.uuid4().hex
+    history = session.get_history(sid)
+    result = run(req.message, history=history)
+    session.append(sid, "user", req.message)
+    session.append(sid, "assistant", result["answer"])
+    return {"answer": result["answer"], "session_id": sid, "trace": result["trace"]}
 
-    query = args[0]
-    from agent.loop import run
 
-    result = run(query)
-    if quiet:
-        print(result["answer"])
-    else:
-        print_result(result)
+@app.delete("/api/chat/sessions/{sid}")
+def delete_session(sid: str) -> dict:
+    """删除指定会话及其全部消息。"""
+    session.clear(sid)
+    return {"ok": True}
+
+
+@app.get("/api/chat/sessions")
+def list_chat_sessions() -> dict:
+    """所有会话摘要（按最近更新时间倒序），供前端侧栏。"""
+    return {"sessions": session.list_sessions()}
+
+
+@app.get("/api/chat/sessions/{sid}/history")
+def get_chat_history(sid: str) -> dict:
+    """单个会话的完整对话历史。"""
+    return {"session_id": sid, "history": session.get_history(sid)}
+
+
+# 演示模式：前端构建产物存在才托管（SPA，API 路由挂载其后，优先匹配）
+dist = PROJECT_ROOT / "frontend" / "dist"
+if dist.is_dir():
+    from fastapi.staticfiles import StaticFiles
+
+    app.mount("/", StaticFiles(directory=str(dist), html=True), name="spa")
 
 
 if __name__ == "__main__":
-    main()
+    uvicorn.run(app, host="127.0.0.1", port=8000)

@@ -13,7 +13,11 @@ _instance = None
 
 
 def load_dotenv() -> None:
-    """读 .env（KEY=VALUE 行）进 os.environ，不覆盖已有环境变量。"""
+    """读 .env（KEY=VALUE 行）进 os.environ，.env 是最终权威。
+
+    用直接覆盖而非 setdefault：shell 里可能预置了别的 key（如 Claude Code 注入的
+    DEEPSEEK_API_KEY），setdefault 会跳过 .env 导致项目用错 key。
+    """
     env_path = PROJECT_ROOT / ".env"
     if not env_path.exists():
         return
@@ -22,7 +26,7 @@ def load_dotenv() -> None:
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, _, value = line.partition("=")
-        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+        os.environ[key.strip()] = value.strip().strip('"').strip("'")
 
 
 def get_client() -> OpenAI:

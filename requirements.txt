@@ -17,3 +17,7 @@ jieba==0.42.1
 
 # ---- Agent loop（DeepSeek OpenAI 兼容接口，手写 while 循环）----
 openai==3.3.1
+
+# ---- Web 服务（M4：FastAPI 后端 + uvicorn）----
+fastapi==0.141.1
+uvicorn==0.52.4

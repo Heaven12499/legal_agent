@@ -18,3 +18,10 @@ models/
 
 # 密钥（M3 agent 的 DeepSeek key，绝不能入库）
 .env
+
+# 前端（M4 分离：依赖与构建产物由 npm 生成，不入库）
+frontend/node_modules/
+frontend/dist/
+
+# 会话库（运行时数据，不入库）
+data/
