@@ -21,11 +21,13 @@ def _dispatch(name: str, args: dict) -> dict:
     return {"text": f"未知工具：{name}", "labels": []}
 
 
-def run(query: str, history: list | None = None, max_rounds: int = 6) -> dict:
+def run(query: str, history: list | None = None, max_rounds: int = 10) -> dict:
     """跑一轮 agent，返回 {"answer": str, "rounds": int, "trace": [...]}。
 
     history 是上一轮对话的干净 user/assistant 轮次（不含中间 tool 消息），
     拼在 system 之后、本轮 query 之前。
+    max_rounds 是 LLM 调用轮次上限：合同审查需检索多个风险点，放宽到 10；
+    问答通常 1~3 轮即结束，上限只影响最坏情况。
     """
     client, model = get_client(), get_model()
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]

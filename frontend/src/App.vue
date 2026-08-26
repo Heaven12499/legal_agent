@@ -4,13 +4,16 @@ import Sidebar from "./components/Sidebar.vue";
 import MessageBubble from "./components/MessageBubble.vue";
 import ConfirmDialog from "./components/ConfirmDialog.vue";
 import Welcome from "./components/Welcome.vue";
-import { sendChat, listSessions, getHistory, removeSession } from "./api.js";
+import { sendChat, listSessions, getHistory, removeSession, uploadFile } from "./api.js";
 
 const sessionId = ref(crypto.randomUUID());
 const messages = ref([]); // {role, content, trace?}
 const sessions = ref([]);
 const input = ref("");
 const sending = ref(false);
+const uploading = ref(false);
+const fileInput = ref(null);
+const uploadedFile = ref(null); // {name, text} 已附加的合同文件，不进输入框
 const pendingDelete = ref(null); // 待删除的 session_id，非空则弹确认框
 
 async function loadSessions() {
@@ -61,14 +64,48 @@ function ask(q) {
   submit();
 }
 
+// 点"审查合同"入口：填入引导语但不自动发送，让用户粘贴合同全文后再发
+function review() {
+  input.value = "请审查这份合同：\n\n";
+}
+
+function pickFile() {
+  fileInput.value?.click();
+}
+
+// 上传合同文件：后端抽成纯文本挂到"已附加"标签，不进输入框（不占用户提问的位置）
+async function onFile(e) {
+  const file = e.target.files?.[0];
+  e.target.value = ""; // 允许连续选同一个文件
+  if (!file) return;
+  uploading.value = true;
+  try {
+    const data = await uploadFile(file);
+    uploadedFile.value = { name: data.filename, text: data.text };
+  } catch (err) {
+    messages.value.push({ role: "assistant", content: `上传失败：${err.message}` });
+  } finally {
+    uploading.value = false;
+  }
+}
+
+// 移除已附加的合同文件（下次发送不再携带）
+function removeUpload() {
+  uploadedFile.value = null;
+}
+
 async function submit() {
-  const text = input.value.trim();
-  if (!text || sending.value) return;
-  messages.value.push({ role: "user", content: text });
+  if (sending.value || uploading.value) return;
+  const q = input.value.trim();
+  const contract = uploadedFile.value ? uploadedFile.value.text : null;
+  // 合同走独立 contract 参数发给 agent；输入框只发用户问题（或默认审查指令）
+  const msg = q || (contract ? "请审查这份合同" : "");
+  if (!msg) return;
+  messages.value.push({ role: "user", content: msg });
   input.value = "";
   sending.value = true;
   try {
-    const data = await sendChat(text, sessionId.value);
+    const data = await sendChat(msg, sessionId.value, contract);
     messages.value.push({ role: "assistant", content: data.answer, trace: data.trace });
     loadSessions();
   } catch (err) {
@@ -95,25 +132,36 @@ watch(() => messages.value.length, scrollToBottom);
 
     <main>
       <div id="messages" aria-live="polite">
-        <Welcome v-if="!messages.length" @ask="ask" />
+        <Welcome v-if="!messages.length" @ask="ask" @review="review" />
         <template v-else>
           <MessageBubble v-for="(m, i) in messages" :key="i" :msg="m" />
         </template>
       </div>
 
       <form id="chat-form" @submit.prevent="submit">
-        <textarea
-          v-model="input"
-          rows="2"
-          placeholder="输入你的问题，例如：被裁员有没有赔偿？"
-          @keydown.enter.exact.prevent="submit"
-          required
-        ></textarea>
-        <button type="submit" id="send-btn" :disabled="sending">
-          {{ sending ? "思考中…" : "发送" }}
-        </button>
+        <div class="chat-toolbar">
+          <button type="button" id="upload-btn" @click="pickFile" :disabled="sending || uploading">
+            {{ uploading ? "解析中…" : "⬆ 上传合同" }}
+          </button>
+          <span v-if="uploadedFile" class="upload-chip" title="点击 ✕ 移除，发送时会把此合同全文带给助手">
+            📄 {{ uploadedFile.name }}
+            <button type="button" class="chip-x" @click="removeUpload" aria-label="移除附件">✕</button>
+          </span>
+        </div>
+        <div class="chat-input-row">
+          <textarea
+            v-model="input"
+            rows="2"
+            placeholder="上传合同后在此输入你的问题；或直接输入问题/粘贴合同"
+            @keydown.enter.exact.prevent="submit"
+          ></textarea>
+          <button type="submit" id="send-btn" :disabled="sending || uploading">
+            {{ sending ? "思考中…" : "发送" }}
+          </button>
+        </div>
+        <input ref="fileInput" type="file" accept=".docx,.pdf,.txt,.md" hidden @change="onFile" />
       </form>
-      <p class="form-hint">Enter 发送 · Shift+Enter 换行 · 内容基于检索到的法条与官方案例，请以官方文本为准</p>
+      <p class="form-hint">上传 .docx/.pdf/.txt 合同自动附加 · Enter 发送 · Shift+Enter 换行 · 内容基于检索到的法条，请以官方文本为准</p>
     </main>
   </div>
 

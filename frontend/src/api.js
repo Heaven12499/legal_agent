@@ -11,10 +11,10 @@ async function request(path, options = {}) {
   return data;
 }
 
-export function sendChat(message, sessionId) {
+export function sendChat(message, sessionId, contract) {
   return request("/chat", {
     method: "POST",
-    body: JSON.stringify({ message, session_id: sessionId }),
+    body: JSON.stringify({ message, session_id: sessionId, ...(contract ? { contract } : {}) }),
   });
 }
 
@@ -28,4 +28,16 @@ export function getHistory(sessionId) {
 
 export function removeSession(sessionId) {
   return request(`/chat/sessions/${encodeURIComponent(sessionId)}`, { method: "DELETE" });
+}
+
+// 上传合同：multipart，不能带 JSON Content-Type
+export function uploadFile(file) {
+  const fd = new FormData();
+  fd.append("file", file);
+  return fetch(`${BASE}/upload`, { method: "POST", body: fd })
+    .then(async (res) => {
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || res.statusText);
+      return data;
+    });
 }

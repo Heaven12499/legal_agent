@@ -199,6 +199,22 @@ main {
   background: #f0f4ff;
   box-shadow: 0 2px 8px rgba(51, 97, 255, 0.08);
 }
+.review-entry {
+  padding: 12px 18px;
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  background: #f0f4ff;
+  color: var(--accent);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 550;
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+.review-entry:hover {
+  background: #e3ebff;
+  box-shadow: 0 2px 10px rgba(51, 97, 255, 0.14);
+}
 
 .bubble {
   max-width: 84%;
@@ -257,13 +273,19 @@ details.trace div {
 
 #chat-form {
   display: flex;
-  gap: 10px;
+  flex-direction: column;
+  gap: 8px;
   padding: 16px 24px 20px;
   background: var(--bg);
   border-top: 1px solid var(--border);
   max-width: 760px;
   width: 100%;
   margin: 0 auto;
+}
+.chat-input-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
 }
 #chat-form textarea {
   flex: 1;
@@ -283,8 +305,54 @@ details.trace div {
   box-shadow: 0 0 0 3px rgba(51, 97, 255, 0.12);
 }
 
+.chat-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+#upload-btn {
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+#upload-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+#upload-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.upload-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 320px;
+  padding: 5px 10px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: rgba(51, 97, 255, 0.08);
+  color: var(--accent);
+  font-size: 12px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.chip-x {
+  border: none;
+  background: none;
+  color: var(--accent);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+}
+.chip-x:hover { color: #c00; }
+
 #send-btn {
-  padding: 0 24px;
+  padding: 8px 24px;
   border: none;
   border-radius: var(--radius);
   background: var(--accent);
@@ -294,6 +362,8 @@ details.trace div {
   font-weight: 550;
   cursor: pointer;
   transition: background 0.15s;
+  align-self: stretch;
+  flex-shrink: 0;
 }
 #send-btn:hover:not(:disabled) { background: var(--accent-hover); }
 #send-btn:disabled { opacity: 0.5; cursor: not-allowed; }

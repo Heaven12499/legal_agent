@@ -50,7 +50,7 @@ pip install -r requirements.txt            # 清华镜像
 python scripts/download_model.py           # 拉 bge 模型到 models/
 python scripts/preprocess_corpus.py        # HTML → txt（可选，语料已入库）
 python -m core.chunking                    # 生成 chunks.json
-python scripts/verify_retrieval.py         # 验收：11/11
+python scripts/verify_retrieval.py         # 验收（首次无 chunks.faiss 会自动重建索引）：11/11
 
 # 复制 .env.example 为 .env，填入 DEEPSEEK_API_KEY
 python cli.py "被裁员有没有赔偿"           # agent 循环端到端（CLI）

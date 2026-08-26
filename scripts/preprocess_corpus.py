@@ -84,6 +84,34 @@ LAW_CONFIGS = [
             "# 2010年10月28日通过，2011年7月1日施行，2018年12月29日修正\n"
         ),
     },
+    # 民法典合同编：清洗脚本是 scripts/preprocess_civil_code.py（整部 txt 切合同编），
+    # 不走通用 html 清洗，故 skip_preprocess=True（仅被 chunking 消费）。
+    {
+        "key": "civil_code_contract",
+        "name": "民法典（合同编）",
+        "clean": "corpus/civil_code_contract.txt",
+        "expected": 526,
+        "skip_preprocess": True,
+        "source": "# 中华人民共和国民法典（合同编），见 scripts/preprocess_civil_code.py\n",
+    },
+    # 商业合同配套司法解释：raw 里已是干净 txt（仅加来源头），不走通用 html 清洗。
+    # 归属民法典法域——商业合同审查在民法典条文之外常引用这两个解释的执行口径。
+    {
+        "key": "judicial_interpretation_contract",
+        "name": "合同编通则解释",
+        "clean": "corpus/judicial_interpretation_contract.txt",
+        "expected": 69,
+        "skip_preprocess": True,
+        "source": "# 合同编通则解释（法释〔2023〕13号）\n",
+    },
+    {
+        "key": "judicial_interpretation_sale",
+        "name": "买卖合同解释",
+        "clean": "corpus/judicial_interpretation_sale.txt",
+        "expected": 33,
+        "skip_preprocess": True,
+        "source": "# 买卖合同解释（法释〔2020〕17号）\n",
+    },
 ]
 
 
@@ -203,8 +231,9 @@ def process(cfg: dict) -> None:
 
 
 def main() -> None:
-    print(f"共 {len(LAW_CONFIGS)} 部法待清洗\n")
-    for cfg in LAW_CONFIGS:
+    active = [cfg for cfg in LAW_CONFIGS if not cfg.get("skip_preprocess")]
+    print(f"共 {len(active)} 部法待清洗（另有 {len(LAW_CONFIGS)-len(active)} 部走独立脚本）\n")
+    for cfg in active:
         process(cfg)
     print("\n全部完成")
 
