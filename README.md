@@ -21,6 +21,8 @@
 
 ![主界面](docs/screenshots/main_ui.png)
 
+![合同审查对话](docs/screenshots/img.png)
+
 ```
 "上传《房屋租赁合同》→ 请审查这份合同"
    └─ agent 循环（while + function calling）
