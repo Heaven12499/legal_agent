@@ -10,9 +10,6 @@ __pycache__/
 *.index
 *.faiss
 
-# 原始整部民法典（大文件，不入库；清洗产物 civil_code_contract.txt 入库）
-corpus/raw/中华人民共和国民法典_20200528.txt
-
 # 切分派生产物（chunks.json 可由 python -m core.chunking 重新生成）
 corpus/chunks.json
 
