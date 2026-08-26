@@ -1,4 +1,4 @@
-# legal_rag — 合同审查 · 法律问答 RAG
+# 智能合同审查 RAG Agent
 
 面向求职面试的法律 RAG 项目，以**合同审查**为核心。检索核心全手写（不用 LangChain），agent 循环手写（不用 LangGraph），语料全部来自官方原文，回答引用不编造。
 
