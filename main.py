@@ -47,23 +47,69 @@ class ChatRequest(BaseModel):
     contract: str | None = None  # 上传的待审查合同全文（可选，作为独立上下文消息传给 agent）
 
 
+def _history_with_contract(history: list, contract: str) -> list:
+    """若会话存有待审查合同，把它作为一条独立 user 上下文消息插在问题之前，
+    与用户提问分开，agent 能区分"要审的合同"和"问的问题"。合同不占对话气泡。"""
+    if contract:
+        return [*history, {"role": "user", "content": f"待审查合同全文如下：\n\n{contract}"}]
+    return history
+
+
 @app.post("/api/chat")
 def chat(req: ChatRequest) -> dict:
     """单轮对话：带 history 调 agent，答案落回会话存储。
 
-    若带了 contract，把它作为一条独立的"待审查合同" user 消息插在问题之前，
-    与用户提问（req.message）分开，agent 能明确区分"要审的合同"和"问的问题"。
-    会话里只存问题本身，合同以附件形式随发送携带，不占对话气泡。
+    contract 每次发送覆盖到会话（None 即移除附件 → 清空），存进 sessions 表，
+    使后续正常对话与"重新生成"都能读到同一份合同。
     """
     sid = req.session_id or uuid.uuid4().hex
+    session.save_contract(sid, req.contract or None)
     history = session.get_history(sid)
-    agent_history = history
-    if req.contract:
-        agent_history = [*history, {"role": "user", "content": f"待审查合同全文如下：\n\n{req.contract}"}]
+    agent_history = _history_with_contract(history, session.get_contract(sid))
     result = run(req.message, history=agent_history)
-    session.append(sid, "user", req.message)
-    session.append(sid, "assistant", result["answer"])
-    return {"answer": result["answer"], "session_id": sid, "trace": result["trace"]}
+    user_id = session.append(sid, "user", req.message)
+    assistant_id = session.append(sid, "assistant", result["answer"], result.get("citation_check"))
+    return {
+        "answer": result["answer"],
+        "session_id": sid,
+        "user_id": user_id,
+        "assistant_id": assistant_id,
+        "trace": result["trace"],
+        "citation_check": result.get("citation_check", {}),
+    }
+
+
+class TruncateRequest(BaseModel):
+    from_id: int  # 截断点：删除该会话 id >= from_id 的所有消息
+
+
+@app.post("/api/chat/sessions/{sid}/truncate")
+def truncate_history(sid: str, req: TruncateRequest) -> dict:
+    """修改重发：把会话截断到某条用户消息之前，让位给重新发送的新一轮。"""
+    session.delete_from(sid, req.from_id)
+    return {"ok": True, "session_id": sid}
+
+
+@app.post("/api/chat/sessions/{sid}/regenerate")
+def regenerate_chat(sid: str) -> dict:
+    """重新生成：删掉最后一条回答，对最后一条用户问题重新跑一遍 agent，替换原回答。"""
+    history = session.get_history(sid)
+    last_user = next((m for m in reversed(history) if m["role"] == "user"), None)
+    if last_user is None:
+        raise HTTPException(status_code=400, detail="没有可重新生成的用户问题")
+    session.delete_after(sid, last_user["id"])  # 只删旧的回答，保留最后一条用户问题
+    history_before = [m for m in history if m["id"] < last_user["id"]]
+    result = run(
+        last_user["content"],
+        history=_history_with_contract(history_before, session.get_contract(sid)),
+    )
+    assistant_id = session.append(sid, "assistant", result["answer"], result.get("citation_check"))
+    return {
+        "answer": result["answer"],
+        "assistant_id": assistant_id,
+        "trace": result["trace"],
+        "citation_check": result.get("citation_check", {}),
+    }
 
 
 @app.post("/api/upload")

@@ -4,10 +4,10 @@ import Sidebar from "./components/Sidebar.vue";
 import MessageBubble from "./components/MessageBubble.vue";
 import ConfirmDialog from "./components/ConfirmDialog.vue";
 import Welcome from "./components/Welcome.vue";
-import { sendChat, listSessions, getHistory, removeSession, uploadFile } from "./api.js";
+import { sendChat, listSessions, getHistory, removeSession, uploadFile, truncateHistory, regenerateChat } from "./api.js";
 
 const sessionId = ref(crypto.randomUUID());
-const messages = ref([]); // {role, content, trace?}
+const messages = ref([]); // {id, role, content, trace?, citation_check?}
 const sessions = ref([]);
 const input = ref("");
 const sending = ref(false);
@@ -15,6 +15,7 @@ const uploading = ref(false);
 const fileInput = ref(null);
 const uploadedFile = ref(null); // {name, text} 已附加的合同文件，不进输入框
 const pendingDelete = ref(null); // 待删除的 session_id，非空则弹确认框
+const editingId = ref(null); // 正在修改的用户消息 id，非空则其气泡进入编辑态
 
 async function loadSessions() {
   try {
@@ -28,6 +29,7 @@ async function openSession(sid) {
   const data = await getHistory(sid);
   sessionId.value = sid;
   messages.value = data.history;
+  editingId.value = null;
   loadSessions();
 }
 
@@ -55,6 +57,7 @@ function newChat() {
   // 只开一个全新的空会话，不删当前会话（保留在侧栏可点回）
   sessionId.value = crypto.randomUUID();
   messages.value = [];
+  editingId.value = null;
   loadSessions();
 }
 
@@ -101,13 +104,72 @@ async function submit() {
   // 合同走独立 contract 参数发给 agent；输入框只发用户问题（或默认审查指令）
   const msg = q || (contract ? "请审查这份合同" : "");
   if (!msg) return;
-  messages.value.push({ role: "user", content: msg });
   input.value = "";
+  await sendAndAppend(msg, contract);
+}
+
+// 真正发一条消息并追加到气泡：成功则带后端返回的消息 id（供后续修改/重新生成定位）
+async function sendAndAppend(msg, contract) {
+  if (sending.value) return;
+  const userMsg = { role: "user", content: msg };
+  messages.value.push(userMsg);
   sending.value = true;
   try {
     const data = await sendChat(msg, sessionId.value, contract);
-    messages.value.push({ role: "assistant", content: data.answer, trace: data.trace });
+    userMsg.id = data.user_id;
+    messages.value.push({
+      id: data.assistant_id,
+      role: "assistant",
+      content: data.answer,
+      trace: data.trace,
+      citation_check: data.citation_check,
+    });
     loadSessions();
+  } catch (err) {
+    messages.value.push({ role: "assistant", content: `请求失败：${err.message}` });
+  } finally {
+    sending.value = false;
+  }
+}
+
+// 进入修改模式：定位用户消息，其气泡切换成可编辑
+function onEdit(msg) {
+  editingId.value = msg.id;
+}
+
+function onEditCancel() {
+  editingId.value = null;
+}
+
+// 修改并重发：截断到该条用户消息之前，删除其后所有消息，再以新文本重发一轮
+async function onEditSubmit(msg, newText) {
+  const i = messages.value.findIndex((m) => m.id === msg.id);
+  if (i < 0 || !newText) return;
+  editingId.value = null;
+  messages.value = messages.value.slice(0, i); // 丢掉本条及其后
+  try {
+    await truncateHistory(sessionId.value, msg.id);
+    // 修改重发也要带上当前附加的合同，否则会把会话里已存的合同清掉
+    await sendAndAppend(newText, uploadedFile.value ? uploadedFile.value.text : null);
+  } catch (err) {
+    messages.value.push({ role: "assistant", content: `请求失败：${err.message}` });
+  }
+}
+
+// 重新生成：后端删掉最后一条回答重跑 agent，用新回答原位替换
+async function onRegenerate(msg) {
+  const i = messages.value.findIndex((m) => m.id === msg.id);
+  if (i < 0) return;
+  sending.value = true;
+  try {
+    const data = await regenerateChat(sessionId.value);
+    messages.value[i] = {
+      id: data.assistant_id,
+      role: "assistant",
+      content: data.answer,
+      trace: data.trace,
+      citation_check: data.citation_check,
+    };
   } catch (err) {
     messages.value.push({ role: "assistant", content: `请求失败：${err.message}` });
   } finally {
@@ -134,7 +196,16 @@ watch(() => messages.value.length, scrollToBottom);
       <div id="messages" aria-live="polite">
         <Welcome v-if="!messages.length" @ask="ask" @review="review" />
         <template v-else>
-          <MessageBubble v-for="(m, i) in messages" :key="i" :msg="m" />
+          <MessageBubble
+            v-for="(m, i) in messages"
+            :key="m.id ?? i"
+            :msg="m"
+            :editing="m.id === editingId"
+            @edit="onEdit"
+            @edit-submit="onEditSubmit"
+            @edit-cancel="onEditCancel"
+            @regenerate="onRegenerate"
+          />
         </template>
       </div>
 

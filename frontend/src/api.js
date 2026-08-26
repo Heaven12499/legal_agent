@@ -30,6 +30,19 @@ export function removeSession(sessionId) {
   return request(`/chat/sessions/${encodeURIComponent(sessionId)}`, { method: "DELETE" });
 }
 
+// 修改重发：截断到 fromId 之前，让位给重新发送的一轮
+export function truncateHistory(sessionId, fromId) {
+  return request(`/chat/sessions/${encodeURIComponent(sessionId)}/truncate`, {
+    method: "POST",
+    body: JSON.stringify({ from_id: fromId }),
+  });
+}
+
+// 重新生成：后端删掉最后一条回答，对最后一条用户问题重跑 agent
+export function regenerateChat(sessionId) {
+  return request(`/chat/sessions/${encodeURIComponent(sessionId)}/regenerate`, { method: "POST" });
+}
+
 // 上传合同：multipart，不能带 JSON Content-Type
 export function uploadFile(file) {
   const fd = new FormData();

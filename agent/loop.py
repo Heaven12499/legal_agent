@@ -10,6 +10,7 @@ import json
 from agent.llm import get_client, get_model
 from agent.prompts import SYSTEM_PROMPT
 from agent.tools import RETRIEVE_TOOL, retrieve
+from core.citations import verify_citations, correction_prompt, annotate
 
 
 def _dispatch(name: str, args: dict) -> dict:
@@ -19,6 +20,27 @@ def _dispatch(name: str, args: dict) -> dict:
         k = int(args.get("k", 5))
         return retrieve(query, k)
     return {"text": f"未知工具：{name}", "labels": []}
+
+
+def _finalize(client, model, messages, answer):
+    """M6 引用校验：核对答案里每条「《法》第X条」是否真实存在。
+
+    有查不到的引用 -> 喂一次纠错指令让 LLM 改用检索到的真实条文（至多 1 次），
+    再校验一次；最后给答案追加校验脚注（✅ 全真 / ⚠️ 如实标注未核实项）。
+    纠错失败则保留原答案，仅加脚注——绝不静默通过编造引用。
+    """
+    check = verify_citations(answer)
+    if check["invalid"]:
+        messages.append({"role": "user", "content": correction_prompt(check)})
+        try:
+            resp = client.chat.completions.create(model=model, messages=messages)
+            fixed = (resp.choices[0].message.content or "").strip()
+            if fixed:
+                answer = fixed
+                check = verify_citations(answer)
+        except Exception:
+            pass  # 纠错请求失败就保留原答案，仍会加脚注
+    return annotate(answer, check), check
 
 
 def run(query: str, history: list | None = None, max_rounds: int = 10) -> dict:
@@ -45,9 +67,10 @@ def run(query: str, history: list | None = None, max_rounds: int = 10) -> dict:
         )
         msg = resp.choices[0].message
 
-        # 无工具调用 => 信息已够，直接给答案
+        # 无工具调用 => 信息已够，直接给答案（M6：先做引用校验再落库）
         if not msg.tool_calls:
-            return {"answer": msg.content or "", "rounds": rnd, "trace": trace}
+            answer, check = _finalize(client, model, messages, msg.content or "")
+            return {"answer": answer, "rounds": rnd, "trace": trace, "citation_check": check}
 
         # assistant 消息必须原样回填（含 tool_calls），API 按 tool_call_id 对齐
         messages.append(

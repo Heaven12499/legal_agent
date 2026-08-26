@@ -246,6 +246,62 @@ main {
   background: #f6f8ff;
   color: var(--muted);
 }
+
+/* 消息操作条：复制/修改/重新生成，hover 浮出（仿 DeepSeek） */
+.msg-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.bubble:hover .msg-actions,
+.bubble.editing .msg-actions { opacity: 1; }
+.msg-act {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.msg-act:hover { color: var(--accent); border-color: var(--accent); }
+.msg-act.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 550;
+}
+.msg-act.primary:hover { background: var(--accent-hover); color: #fff; }
+
+/* 用户消息修改模式：气泡切成可编辑输入 */
+.bubble.editing {
+  width: 100%;
+  max-width: 100%;
+}
+.edit-input {
+  width: 100%;
+  resize: vertical;
+  padding: 10px 12px;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  outline: none;
+}
+.edit-input:focus { box-shadow: 0 0 0 3px rgba(51, 97, 255, 0.12); }
+.edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 8px;
+}
 .bubble code {
   background: #eef0f3;
   padding: 1px 6px;
@@ -367,6 +423,38 @@ details.trace div {
 }
 #send-btn:hover:not(:disabled) { background: var(--accent-hover); }
 #send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* M6 引用校验卡片：原生 details，点击展开/收起 */
+.cite-check {
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--panel);
+}
+.cite-check summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+}
+.cite-check summary::-webkit-details-marker { display: none; }
+.cite-status { font-size: 13px; font-weight: 600; }
+.cite-status.ok { color: #16a34a; }
+.cite-status.warn { color: #d97706; }
+.cite-toggle { margin-left: auto; color: var(--muted); font-size: 12px; }
+.cite-body {
+  padding: 4px 12px 12px;
+  border-top: 1px dashed var(--border);
+  font-size: 13px;
+}
+.cite-msg { color: #16a34a; margin: 8px 0 4px; }
+.cite-list { margin: 8px 0 4px; padding-left: 18px; color: var(--text); }
+.cite-list li { margin: 2px 0; }
+.cite-invalid { margin: 8px 0 0; color: #d97706; }
 
 .form-hint {
   text-align: center;
