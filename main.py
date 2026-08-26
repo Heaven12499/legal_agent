@@ -1,19 +1,7 @@
 # -*- coding: utf-8 -*-
-"""
-法律 RAG 助手 Web 服务（M4）：纯 API 后端，与 Vue 前端分离部署。
-
-启动（开发，双进程）：
-    python main.py                     # API 在 127.0.0.1:8000
-    cd frontend && npm run dev         # 前端在 5173，/api 代理到 8000
-
-启动（演示，单进程）：
-    cd frontend && npm run build
-    python main.py                     # 直接开 http://127.0.0.1:8000
-
-API（/api 前缀）：
-    POST /api/chat  {"message": "...", "session_id": "..."} -> {"answer", "session_id", "trace"}
-                session_id 缺省时服务端生成并返回，前端存下来续传即多轮。
-"""
+"""法律 RAG 助手 Web 服务：纯 API 后端，与 Vue 前端分离。
+开发: python main.py + cd frontend && npm run dev（5173 代理到 8000）
+演示: cd frontend && npm run build 后 python main.py 单进程直开 8000。"""
 import sys
 import uuid
 from pathlib import Path
@@ -24,11 +12,14 @@ sys.path.insert(0, str(PROJECT_ROOT))
 import uvicorn
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 from agent import session
 from agent.loop import run
+from agent.revise import revise_contract
 from core import fileparse
+from core.docx_export import build_docx
 
 app = FastAPI(title="法律 RAG 助手")
 
@@ -76,6 +67,7 @@ def chat(req: ChatRequest) -> dict:
         "assistant_id": assistant_id,
         "trace": result["trace"],
         "citation_check": result.get("citation_check", {}),
+        "has_contract": bool(session.get_contract(sid)),
     }
 
 
@@ -112,6 +104,32 @@ def regenerate_chat(sid: str) -> dict:
     }
 
 
+@app.post("/api/chat/sessions/{sid}/revise-docx")
+def revise_and_export_docx(sid: str) -> Response:
+    """把会话里已审查的合同生成修订版，导出成 .docx 下载。
+
+    依赖会话存有待审查合同（上传过）且已有至少一条助手审查回答；
+    修订版全文 + 修改说明表（原条款/修订后/依据，依据经 M6 校验）。
+    """
+    contract = session.get_contract(sid)
+    if not contract.strip():
+        raise HTTPException(status_code=400, detail="当前会话没有待审查合同，无法生成修订版")
+    history = session.get_history(sid)
+    review = next((m["content"] for m in reversed(history) if m["role"] == "assistant"), "")
+    try:
+        result = revise_contract(contract, review)
+    except ValueError as e:
+        raise HTTPException(status_code=502, detail=f"修订生成失败：{e}")
+    content = build_docx(result["修订版合同"], result["修改清单"], result["有效"], result["总数"])
+    filename = "修订版合同.docx"
+    from urllib.parse import quote
+    return Response(
+        content,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}"},
+    )
+
+
 @app.post("/api/upload")
 async def upload_contract(file: UploadFile = File(...)) -> dict:
     """上传合同文件 → 返回提取的纯文本。审查仍走 /api/chat，本端点只做解析。"""
@@ -143,8 +161,12 @@ def list_chat_sessions() -> dict:
 
 @app.get("/api/chat/sessions/{sid}/history")
 def get_chat_history(sid: str) -> dict:
-    """单个会话的完整对话历史。"""
-    return {"session_id": sid, "history": session.get_history(sid)}
+    """单个会话的完整对话历史；has_contract 供前端决定是否显示导出修订版按钮。"""
+    return {
+        "session_id": sid,
+        "history": session.get_history(sid),
+        "has_contract": bool(session.get_contract(sid)),
+    }
 
 
 # 演示模式：前端构建产物存在才托管（SPA，API 路由挂载其后，优先匹配）

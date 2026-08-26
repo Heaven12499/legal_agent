@@ -229,6 +229,7 @@ main {
   background: var(--user-bg);
   color: #f2f4f7;
   border-radius: 16px 16px 6px 16px;
+  white-space: pre-wrap;         /* 合同原文保留换行 */
 }
 .bubble.assistant {
   align-self: flex-start;

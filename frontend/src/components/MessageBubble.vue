@@ -3,8 +3,8 @@ import { computed, ref, watch } from "vue";
 import { renderMarkdown } from "../markdown.js";
 import TraceDetails from "./TraceDetails.vue";
 
-const props = defineProps({ msg: Object, editing: Boolean });
-const emit = defineEmits(["edit", "edit-submit", "edit-cancel", "regenerate"]);
+const props = defineProps({ msg: Object, editing: Boolean, hasContract: Boolean });
+const emit = defineEmits(["edit", "edit-submit", "edit-cancel", "regenerate", "export-revise"]);
 
 // 有 citation_check 卡片时，把答案末尾的"引用校验"块引用脚注去掉，避免重复
 const html = computed(() => {
@@ -76,6 +76,7 @@ function confirmEdit() {
     <div class="msg-actions">
       <button type="button" class="msg-act" @click="copyContent">{{ copied ? "已复制" : "复制" }}</button>
       <button type="button" class="msg-act" @click="emit('regenerate', msg)">重新生成</button>
+      <button v-if="hasContract" type="button" class="msg-act primary" @click="emit('export-revise', msg)">导出修订版 Word</button>
     </div>
   </div>
 

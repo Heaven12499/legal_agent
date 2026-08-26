@@ -1,10 +1,6 @@
 # -*- coding: utf-8 -*-
-"""会话存储：SQLite 持久化（标准库 sqlite3，零第三方依赖），重启不丢。
-
-与旧内存版公开接口一致：get_history / append / clear / list_sessions。
-每个操作开短连接（closing + 事务上下文），天然线程安全——
-FastAPI 同步端点跑在线程池，各线程各开各的连接。
-"""
+"""会话存储：SQLite 持久化（标准库 sqlite3），重启不丢。每操作开短连接（closing+事务），
+天然线程安全（FastAPI 同步端点跑线程池，各线程各开各的连接）。"""
 import json
 import os
 import sqlite3

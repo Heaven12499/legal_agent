@@ -1,10 +1,6 @@
 # -*- coding: utf-8 -*-
-"""
-agent 循环：手写 while 循环实现 OpenAI function calling 多轮检索。
-
-每轮：调 LLM -> 有工具调用就执行 retrieve 并回填 -> 直到 LLM 不再调工具、
-直接给出答案。trace 记录每轮检索的 query 和命中，供调试与前端展示。
-"""
+"""手写 while 循环实现 OpenAI function calling 多轮检索：调 LLM → 有工具调用就执行
+retrieve 并回填 → 直到直接给答案。trace 记录每轮 query 与命中供前端展示。"""
 import json
 
 from agent.llm import get_client, get_model

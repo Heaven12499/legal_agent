@@ -43,6 +43,18 @@ export function regenerateChat(sessionId) {
   return request(`/chat/sessions/${encodeURIComponent(sessionId)}/regenerate`, { method: "POST" });
 }
 
+// 导出修订版 Word：返回 .docx 的 Blob，由调用方触发下载
+export async function exportDocx(sessionId) {
+  const res = await fetch(`${BASE}/chat/sessions/${encodeURIComponent(sessionId)}/revise-docx`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.detail || res.statusText);
+  }
+  return res.blob();
+}
+
 // 上传合同：multipart，不能带 JSON Content-Type
 export function uploadFile(file) {
   const fd = new FormData();

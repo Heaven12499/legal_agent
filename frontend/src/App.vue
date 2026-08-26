@@ -4,7 +4,7 @@ import Sidebar from "./components/Sidebar.vue";
 import MessageBubble from "./components/MessageBubble.vue";
 import ConfirmDialog from "./components/ConfirmDialog.vue";
 import Welcome from "./components/Welcome.vue";
-import { sendChat, listSessions, getHistory, removeSession, uploadFile, truncateHistory, regenerateChat } from "./api.js";
+import { sendChat, listSessions, getHistory, removeSession, uploadFile, truncateHistory, regenerateChat, exportDocx } from "./api.js";
 
 const sessionId = ref(crypto.randomUUID());
 const messages = ref([]); // {id, role, content, trace?, citation_check?}
@@ -16,6 +16,8 @@ const fileInput = ref(null);
 const uploadedFile = ref(null); // {name, text} 已附加的合同文件，不进输入框
 const pendingDelete = ref(null); // 待删除的 session_id，非空则弹确认框
 const editingId = ref(null); // 正在修改的用户消息 id，非空则其气泡进入编辑态
+const exporting = ref(false); // 导出修订版 Word 进行中
+const hasContract = ref(false); // 当前会话是否存有待审查合同（决定是否显示导出按钮）
 
 async function loadSessions() {
   try {
@@ -29,6 +31,7 @@ async function openSession(sid) {
   const data = await getHistory(sid);
   sessionId.value = sid;
   messages.value = data.history;
+  hasContract.value = !!data.has_contract;
   editingId.value = null;
   loadSessions();
 }
@@ -49,6 +52,7 @@ async function doDelete() {
   if (sid === sessionId.value) {
     sessionId.value = crypto.randomUUID();
     messages.value = [];
+    hasContract.value = false;
   }
   loadSessions();
 }
@@ -57,6 +61,7 @@ function newChat() {
   // 只开一个全新的空会话，不删当前会话（保留在侧栏可点回）
   sessionId.value = crypto.randomUUID();
   messages.value = [];
+  hasContract.value = false;
   editingId.value = null;
   loadSessions();
 }
@@ -109,13 +114,23 @@ async function submit() {
 }
 
 // 真正发一条消息并追加到气泡：成功则带后端返回的消息 id（供后续修改/重新生成定位）
+// 带合同时，用户气泡展示「合同全文 + 用户输入」；但发给后端仍是单独的 msg（问题）
+// + contract（独立参数），agent 上下文里合同只注入一次，不破坏"合同 vs 问题"的分离。
+const CONTRACT_PREFIX = "待审查合同全文：\n\n";
+function stripContract(display, contract) {
+  const pre = CONTRACT_PREFIX + (contract ?? "") + "\n\n";
+  return display.startsWith(pre) ? display.slice(pre.length) : display;
+}
+
 async function sendAndAppend(msg, contract) {
   if (sending.value) return;
-  const userMsg = { role: "user", content: msg };
+  const display = contract ? CONTRACT_PREFIX + contract + "\n\n" + msg : msg;
+  const userMsg = { role: "user", content: display };
   messages.value.push(userMsg);
   sending.value = true;
   try {
     const data = await sendChat(msg, sessionId.value, contract);
+    hasContract.value = !!data.has_contract;
     userMsg.id = data.user_id;
     messages.value.push({
       id: data.assistant_id,
@@ -149,10 +164,33 @@ async function onEditSubmit(msg, newText) {
   messages.value = messages.value.slice(0, i); // 丢掉本条及其后
   try {
     await truncateHistory(sessionId.value, msg.id);
-    // 修改重发也要带上当前附加的合同，否则会把会话里已存的合同清掉
-    await sendAndAppend(newText, uploadedFile.value ? uploadedFile.value.text : null);
+    // 修改重发也要带上当前附加的合同，否则会把会话里已存的合同清掉；
+    // 编辑框里是「合同全文+问题」的展示文本，需先剥掉合同前缀，避免重复拼接
+    const contractText = uploadedFile.value ? uploadedFile.value.text : null;
+    await sendAndAppend(stripContract(newText, contractText), contractText);
   } catch (err) {
     messages.value.push({ role: "assistant", content: `请求失败：${err.message}` });
+  }
+}
+
+// 导出修订版 Word：后端生成修订版合同并返回 .docx，前端触发浏览器下载
+async function onExportRevise() {
+  if (exporting.value) return;
+  exporting.value = true;
+  try {
+    const blob = await exportDocx(sessionId.value);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "修订版合同.docx";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    messages.value.push({ role: "assistant", content: `导出失败：${err.message}` });
+  } finally {
+    exporting.value = false;
   }
 }
 
@@ -201,10 +239,12 @@ watch(() => messages.value.length, scrollToBottom);
             :key="m.id ?? i"
             :msg="m"
             :editing="m.id === editingId"
+            :has-contract="hasContract"
             @edit="onEdit"
             @edit-submit="onEditSubmit"
             @edit-cancel="onEditCancel"
             @regenerate="onRegenerate"
+            @export-revise="onExportRevise"
           />
         </template>
       </div>
