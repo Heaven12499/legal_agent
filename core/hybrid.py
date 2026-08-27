@@ -5,6 +5,7 @@ RRF 只看排名不看分数，规避两路分数量纲不可比的问题（原�
 """
 from core.bm25 import get_bm25
 from core.retriever import get_retriever
+from core.rerank import enabled
 
 _instance = None
 
@@ -35,8 +36,17 @@ class HybridRetriever:
         for i, r in bm25_rank.items():
             fused[i] = fused.get(i, 0.0) + 1.0 / (rrf_k + r)
 
-        # 按融合分降序取 top-k，附上每路排位便于对照融合效果
-        top = sorted(fused, key=fused.get, reverse=True)[:k]
+        # 按融合分降序先取 top-n 候选（比 k 大，供精排/回退有得选）
+        ranked = sorted(fused, key=fused.get, reverse=True)
+        # 可选精排（RERANK=1）：对 top-n 用 bge-reranker 打分取 top-k；模型不可用则回退 RRF
+        if enabled():
+            try:
+                from core.rerank import rerank
+
+                top_n = [self.vector.chunks[i] for i in ranked[:n]]
+                return rerank(query, top_n, k)
+            except Exception:  # noqa: BLE001 —— 模型缺失/加载失败，静默回退
+                pass
         return [
             {
                 **self.vector.chunks[i],
@@ -44,7 +54,7 @@ class HybridRetriever:
                 "向量排位": vec_rank.get(i, None) + 1 if i in vec_rank else None,
                 "BM25排位": bm25_rank.get(i, None) + 1 if i in bm25_rank else None,
             }
-            for i in top
+            for i in ranked[:k]
         ]
 
 

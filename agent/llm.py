@@ -4,6 +4,7 @@ LLM 客户端：DeepSeek（OpenAI 兼容接口）懒加载单例 + .env 加载�
 base_url / key / model 全部 env 可配，换网关换模型只改 .env。
 """
 import os
+import time
 from pathlib import Path
 
 from openai import OpenAI
@@ -39,13 +40,32 @@ def get_client() -> OpenAI:
                 "未找到 LLM API key：请把 DEEPSEEK_API_KEY 写入 .env（参考 .env.example）"
             )
         base_url = os.environ.get("OPENAI_BASE_URL", "https://api.deepseek.com")
-        _instance = OpenAI(api_key=api_key, base_url=base_url)
+        # 显式 timeout（默认 60s，LLM_TIMEOUT 可配），避免网络抖动时请求无限挂起
+        timeout = float(os.environ.get("LLM_TIMEOUT", "60"))
+        _instance = OpenAI(api_key=api_key, base_url=base_url, timeout=timeout)
     return _instance
 
 
 def get_model() -> str:
     """读模型名（env 可配，默认 deepseek-chat）。"""
     return os.environ.get("LLM_MODEL", "deepseek-chat")
+
+
+def chat(messages: list, **kw):
+    """带重试的 LLM 调用：DeepSeek 偶发 5xx/超时，重试 3 次（1s/2s/3s 退避）再抛。
+
+    model 已在内部带上，调用方只需传 messages 与其它参数（tools/response_format 等）。
+    3 次都失败则抛出最后一次异常，交给上层处理。
+    """
+    client, model = get_client(), get_model()
+    last = None
+    for attempt in range(3):
+        try:
+            return client.chat.completions.create(model=model, messages=messages, **kw)
+        except Exception as e:  # noqa: BLE001 —— 任意网络/服务异常都该重试
+            last = e
+            time.sleep(attempt + 1)
+    raise last
 
 
 # 模块导入即加载 .env，各入口不必各自 load

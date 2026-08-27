@@ -6,7 +6,7 @@
 import json
 import re
 
-from agent.llm import get_client, get_model
+from agent.llm import chat
 from core.citations import extract_citations, VALID
 
 REVISE_PROMPT = """你是合同修订助手。下面给你一份合同全文和针对它的审查报告（含风险点与法律依据）。
@@ -58,13 +58,12 @@ def _verify(changes: list) -> tuple[int, int]:
 
 def revise_contract(contract: str, review: str) -> dict:
     """跑修订：返回 {"修订版合同", "修改清单", "有效", "总数"}。解析失败抛 ValueError。"""
-    client, model = get_client(), get_model()
     messages = [
         {"role": "system", "content": "你只依据检索到的真实法律条文修订合同，绝不编造条号。"},
         {"role": "user", "content": REVISE_PROMPT + contract + "\n\n审查报告：\n" + review},
     ]
-    resp = client.chat.completions.create(
-        model=model, messages=messages,
+    resp = chat(
+        messages,
         response_format={"type": "json_object"},
     )
     data = _parse_json(resp.choices[0].message.content or "")

@@ -5,6 +5,7 @@ agent 的工具层：retrieve 工具的 function calling schema + 执行器。
 查询改写不设单独工具——检索一次不够就换法律术语再检，在 loop 循环里自然发生。
 执行器直接复用 core.hybrid 的混合检索；label 口径与 verify_retrieval.py 一致。
 """
+import json
 import sys
 from pathlib import Path
 
@@ -12,6 +13,41 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from core.hybrid import get_hybrid
+from core.citations import normalize_law
+
+# 命中法条后，把同法相邻条（序数 ±NEIGHBOR_SPAN）也补进上下文。
+# 法律条文高度关联（如 585 违约金常要和 584/586 配套引用），单条 chunk 里 LLM 看不到邻居。
+NEIGHBOR_SPAN = 1
+_PROJ = Path(__file__).resolve().parents[1]
+_nbr_index = None
+
+
+def _neighbor_index() -> dict:
+    """惰性建 {法律: {序数 int: chunk}}，供相邻条扩展按序数查找邻居。"""
+    global _nbr_index
+    if _nbr_index is None:
+        idx: dict = {}
+        for ch in json.loads((_PROJ / "corpus" / "chunks.json").read_text(encoding="utf-8")):
+            idx.setdefault(ch["法律"], {})[ch["序数"]] = ch
+        _nbr_index = idx
+    return _nbr_index
+
+
+def _expand_neighbors(hits: list) -> list:
+    """主命中之外，补同法相邻条（±span），按 (法律, 序数) 排序保持上下文有序。
+
+    只补同法、序数真实存在的条；不重复。返回主命中 + 邻居。"""
+    idx = _neighbor_index()
+    by_id = {id(h): h for h in hits}
+    for h in hits:
+        law, n = h["法律"], h["序数"]
+        for d in range(1, NEIGHBOR_SPAN + 1):
+            for nb in (n - d, n + d):
+                ch = idx.get(law, {}).get(nb)
+                if ch and id(ch) not in by_id:
+                    by_id[id(ch)] = ch
+    extra = [c for c in by_id.values() if not any(c is h for h in hits)]
+    return hits + sorted(extra, key=lambda c: (c["法律"], c["序数"]))
 
 RETRIEVE_TOOL = {
     "type": "function",
@@ -55,11 +91,63 @@ def format_chunk(chunk: dict, idx: int) -> str:
 
 
 def retrieve(query: str, k: int = 5) -> dict:
-    """执行一次检索，返回 {text: 给 LLM 看的文本, labels: 命中展示名（供 trace 记录）}。"""
-    hits = get_hybrid().search(query, k)
-    labels = [label(h) for h in hits]
-    if not hits:
+    """执行一次检索，返回 {text: 给 LLM 看的文本, labels: 命中展示名（供 trace 记录）}。
+
+    labels 只记主命中（top-k），供前端 trace 展示；text 在给 LLM 时补上相邻条上下文。"""
+    primary = get_hybrid().search(query, k)
+    labels = [label(h) for h in primary]
+    if not primary:
         text = f"检索「{query}」未命中任何条文或案例，请换一种法律表述再试。"
     else:
+        hits = _expand_neighbors(primary)
         text = "\n\n".join(format_chunk(h, i + 1) for i, h in enumerate(hits))
     return {"text": text, "labels": labels}
+
+
+LOOKUP_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "lookup_article",
+        "description": (
+            "按法律名和条号精确查找某一条法条的原文。用于核实/复核你打算引用的条文："
+            "当你要引用「《法律名》第X条」时，先用本工具调出该条原文，确认内容与你复述的一致，"
+            "再落笔；反思阶段也用它拿原文比对可疑引用。法律名与条号必须确切。"
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "law_name": {
+                    "type": "string",
+                    "description": "规范法律名，如「民法典（合同编）」「劳动合同法」「合同编通则解释」",
+                },
+                "article_number": {
+                    "type": "integer",
+                    "description": "条号（阿拉伯数字），如 585",
+                },
+            },
+            "required": ["law_name", "article_number"],
+        },
+    },
+}
+
+
+def lookup_article(law_name: str, article_number: int) -> dict:
+    """按规范法名（自动别名归一）+ 条号从语料精确查一条法条原文。
+
+    数据全部来自 chunks.json，绝不虚构。找不到时如实返回未找到。返回结构化
+    {text, labels, found}，found 供调用方/反思循环判断是否命中。"""
+    law = normalize_law(law_name or "")
+    ch = _neighbor_index().get(law, {}).get(int(article_number))
+    if not ch:
+        return {
+            "text": f"未找到《{law_name}》第{article_number}条：该条不在语料中，"
+                    "请核对法律名/条号，或改用 retrieve 检索。",
+            "labels": [],
+            "found": False,
+        }
+    return {"text": format_chunk(ch, 1), "labels": [label(ch)], "found": True}
+
+
+# 工具注册表：新增工具只需在 TOOL_SCHEMAS 加 schema、TOOL_EXECUTORS 加执行器，loop 零改动。
+TOOL_SCHEMAS = [RETRIEVE_TOOL, LOOKUP_TOOL]
+TOOL_EXECUTORS = {"retrieve": retrieve, "lookup_article": lookup_article}
