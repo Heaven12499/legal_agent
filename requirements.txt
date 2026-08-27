@@ -26,3 +26,7 @@ python-multipart==0.0.20
 # ---- 合同文件上传解析（M5：docx/pdf/txt -> 纯文本，复用现有 agent）----
 python-docx==1.2.0
 pypdf==6.16.2
+
+# ---- 用户认证（M9：argon2 密码哈希 + JWT 签发/校验）----
+argon2-cffi==25.1.0
+PyJWT==2.13.0

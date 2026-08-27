@@ -1,6 +1,6 @@
 <script setup>
-defineProps({ sessions: Array, activeId: String });
-const emit = defineEmits(["open", "new", "delete"]);
+defineProps({ sessions: Array, activeId: String, username: String });
+const emit = defineEmits(["open", "new", "delete", "logout"]);
 
 function relTime(ts) {
   const diff = Math.max(0, Date.now() / 1000 - ts);
@@ -41,7 +41,12 @@ function relTime(ts) {
 
     <div class="sidebar-footer">
       <div class="footer-row"><span class="dot"></span> deepseek-chat</div>
-      <div class="footer-meta">5 部法 · 395 条 · 8 案例</div>
+      <!-- 语料统计：改 corpus/chunks.json 后请同步此处（无案例库，案例恒为 0） -->
+      <div class="footer-meta">8 部法 · 1023 条 · 0 案例</div>
+      <div class="footer-user">
+        <span class="footer-username" :title="username">{{ username }}</span>
+        <button type="button" class="logout-btn" @click="emit('logout')">退出</button>
+      </div>
     </div>
   </aside>
 </template>

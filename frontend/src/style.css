@@ -463,3 +463,120 @@ details.trace div {
   font-size: 11px;
   padding: 0 20px 12px;
 }
+
+/* ---------- M9 登录/注册页 ---------- */
+.auth-wrap {
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  padding: 20px;
+}
+.auth-card {
+  width: 360px;
+  max-width: 100%;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 28px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 10px 34px rgba(20, 30, 60, 0.08);
+}
+.auth-brand {
+  font-size: 19px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+.auth-sub {
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+  margin-top: -8px;
+}
+.auth-tabs {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.auth-tabs button {
+  flex: 1;
+  padding: 8px;
+  border: none;
+  background: var(--panel);
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.auth-tabs button.active {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 550;
+}
+.auth-field { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--muted); }
+.auth-field input {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.auth-field input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(51, 97, 255, 0.12);
+}
+.auth-error { color: var(--danger); font-size: 12px; }
+.auth-submit {
+  padding: 11px;
+  border: none;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 550;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.auth-submit:hover:not(:disabled) { background: var(--accent-hover); }
+.auth-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* 侧栏底部用户 + 退出 */
+.footer-user {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.footer-username {
+  font-size: 12px;
+  color: var(--sidebar-fg);
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.logout-btn {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--sidebar-muted);
+  font: inherit;
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.logout-btn:hover { color: var(--danger); border-color: var(--danger); }

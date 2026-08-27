@@ -4,8 +4,10 @@ import Sidebar from "./components/Sidebar.vue";
 import MessageBubble from "./components/MessageBubble.vue";
 import ConfirmDialog from "./components/ConfirmDialog.vue";
 import Welcome from "./components/Welcome.vue";
-import { sendChat, listSessions, getHistory, removeSession, uploadFile, truncateHistory, regenerateChat, exportDocx } from "./api.js";
+import AuthForm from "./components/AuthForm.vue";
+import { sendChat, listSessions, getHistory, removeSession, uploadFile, truncateHistory, regenerateChat, exportDocx, me, getToken, setToken, clearToken } from "./api.js";
 
+const user = ref(null); // 登录用户；null = 未登录，显示登录页
 const sessionId = ref(crypto.randomUUID());
 const messages = ref([]); // {id, role, content, trace?, citation_check?}
 const sessions = ref([]);
@@ -215,7 +217,38 @@ async function onRegenerate(msg) {
   }
 }
 
-onMounted(loadSessions);
+// ---- 登录态 ----
+function handleAuthSuccess(data) {
+  setToken(data.token);
+  user.value = { username: data.username };
+  sessionId.value = crypto.randomUUID();
+  messages.value = [];
+  hasContract.value = false;
+  uploadedFile.value = null;
+  loadSessions();
+}
+
+function logout() {
+  clearToken();
+  user.value = null;
+  messages.value = [];
+  sessions.value = [];
+  sessionId.value = crypto.randomUUID();
+  hasContract.value = false;
+  uploadedFile.value = null;
+}
+
+onMounted(async () => {
+  // 有 token 先验有效性：有效则直接进主界面，失效则清 token 停在登录页
+  if (getToken()) {
+    try {
+      user.value = await me();
+      await loadSessions();
+    } catch {
+      clearToken();
+    }
+  }
+});
 
 // 每次新消息加入后自动滚到对话底部，免手动滑动
 async function scrollToBottom() {
@@ -227,8 +260,17 @@ watch(() => messages.value.length, scrollToBottom);
 </script>
 
 <template>
-  <div class="layout">
-    <Sidebar :sessions="sessions" :active-id="sessionId" @open="openSession" @new="newChat" @delete="askDelete" />
+  <AuthForm v-if="!user" @success="handleAuthSuccess" />
+  <div v-else class="layout">
+    <Sidebar
+      :sessions="sessions"
+      :active-id="sessionId"
+      :username="user.username"
+      @open="openSession"
+      @new="newChat"
+      @delete="askDelete"
+      @logout="logout"
+    />
 
     <main>
       <div id="messages" aria-live="polite">

@@ -14,8 +14,11 @@ _test_db.exists() and _test_db.unlink()
 os.environ["SESSION_DB"] = str(_test_db)
 
 import agent.llm as llm
-from agent import session
+from agent import session, auth
 from agent.loop import run
+
+# M9 鉴权：session 读写按 user_id 归属，先 seed 一个测试用户拿 id
+TEST_USER = auth.seed_user("smoke_user", "smoke123456")["id"]
 
 
 from types import SimpleNamespace as NS
@@ -68,26 +71,27 @@ def install_fake_client(script):
 
 def test_run_history():
     """第 2 轮带 history 时，messages 应含上一轮 user/assistant 干净轮次。"""
-    session.append("s1", "user", "被裁员有没有赔偿")
-    session.append("s1", "assistant", "上一轮答案：看情况……")
+    session.append(TEST_USER, "s1", "user", "被裁员有没有赔偿")
+    session.append(TEST_USER, "s1", "assistant", "上一轮答案：看情况……")
 
     install_fake_client([("answer", "这是第二轮的回答")])
 
     # 用 history 调 run，stub 脚本只有 answer，说明 history 已带入（否则无工具调会走默认）
-    result = run("那经济补偿具体按什么标准算", history=session.get_history("s1"))
+    result = run("那经济补偿具体按什么标准算", history=session.get_history(TEST_USER, "s1"))
     assert result["answer"] == "这是第二轮的回答", result
     print("[OK] run(history=...) 正常，history 已带入 messages")
 
 
 def test_session_roundtrip():
     """session 存储：append 后再 get 应原样返回。"""
-    session.clear("s2")
-    session.append("s2", "user", "第一句")
-    session.append("s2", "assistant", "第一句回答")
-    hist = session.get_history("s2")
-    assert hist == [
-        {"role": "user", "content": "第一句"},
-        {"role": "assistant", "content": "第一句回答"},
+    session.clear(TEST_USER, "s2")
+    session.append(TEST_USER, "s2", "user", "第一句")
+    session.append(TEST_USER, "s2", "assistant", "第一句回答")
+    hist = session.get_history(TEST_USER, "s2")
+    # M6 后 get_history 每条带 id（供修改/重新生成定位），这里只比较角色与内容
+    assert [(m["role"], m["content"]) for m in hist] == [
+        ("user", "第一句"),
+        ("assistant", "第一句回答"),
     ], hist
     print("[OK] session.append/get_history 正常")
 
