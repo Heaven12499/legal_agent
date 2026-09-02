@@ -185,30 +185,50 @@ def check_faithfulness(text: str) -> list:
     return out
 
 
-def verify_citations(text: str) -> dict:
-    """核对一遍答案的引用：valid = 真实存在，invalid = 语料里找不到的（均已去重）；
-    suspect = 条号真实但复述内容与原文重叠率极低（内容忠实度存疑）。"""
+def verify_citations(text: str, allowed: set[tuple[str, int]] | None = None) -> dict:
+    """核对答案里的法条引用。
+
+    valid/invalid 回答「这条法条是否在本地语料中存在」；若传入 allowed，ungrounded
+    额外回答「这条真实法条是否来自本轮检索证据」。两者必须分开：存在于语料不等于
+    本轮模型真的检索到了它。
+    """
     valid, invalid = [], []
     for c in _dedup(extract_citations(text)):
         if c["law"] in VALID and c["num"] in VALID[c["law"]]:
             valid.append(c)
         else:
             invalid.append(c)
+    ungrounded = []
+    if allowed is not None:
+        ungrounded = [
+            c for c in valid if (c["law"], c["num"]) not in allowed
+        ]
     return {
         "total": len(valid) + len(invalid),
         "valid": valid,
         "invalid": invalid,
+        "ungrounded": ungrounded,
         "suspect": check_faithfulness(text),
     }
 
 
 def correction_prompt(check: dict) -> str:
-    """返回喂回 LLM 的纠错指令：把不存在的引用改成检索到的真实条文。"""
+    """返回喂回 LLM 的纠错指令：只保留本轮真实检索到的法条。"""
     bad = "；".join(f"《{c['raw_law']}》第{c['raw_num']}条" for c in check["invalid"])
+    ungrounded = "；".join(
+        f"《{c['raw_law']}》第{c['raw_num']}条" for c in check.get("ungrounded", [])
+    )
+    parts = []
+    if bad:
+        parts.append(f"{len(check['invalid'])} 处法条引用在检索语料中不存在：{bad}")
+    if ungrounded:
+        parts.append(
+            f"{len(check['ungrounded'])} 处法条虽存在，但并非本轮检索工具返回的证据：{ungrounded}"
+        )
     return (
-        f"你刚才的回答中有 {len(check['invalid'])} 处法条引用在检索语料中不存在：{bad}。"
-        "这些条号或法名可能被你记错或编造了。请只使用检索工具返回的真实条文重写相关引用；"
-        "找不到对应条文就如实说明「未检索到直接对应的条文」，不要编造条号。"
+        "你刚才的回答存在引用问题：" + "；".join(parts) + "。"
+        "请只使用本轮检索工具已经返回的真实条文重写相关引用；"
+        "找不到对应条文就如实说明「未检索到直接对应的条文」，不要凭记忆补充条号。"
         "只输出修正后的完整回答。"
     )
 
@@ -226,6 +246,9 @@ def annotate(answer: str, check: dict) -> str:
     if check["invalid"]:
         bad = "、".join(f"《{c['raw_law']}》第{c['raw_num']}条" for c in check["invalid"])
         note = f"⚠️ 引用校验：{len(check['invalid'])} 处未能在语料中核实——{bad}"
+    elif check.get("ungrounded"):
+        bad = "、".join(f"《{c['raw_law']}》第{c['raw_num']}条" for c in check["ungrounded"])
+        note = f"⚠️ 证据校验：{len(check['ungrounded'])} 处引用未来自本轮检索结果——{bad}"
     elif check.get("suspect"):
         bad = "、".join(s["raw"] for s in check["suspect"])
         note = (f"⚠️ 引用校验：{check['total']} 处条号均真实存在，但 "

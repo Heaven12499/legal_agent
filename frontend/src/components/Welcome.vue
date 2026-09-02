@@ -10,7 +10,7 @@ defineEmits(["ask", "review"]);
 
 <template>
   <div class="welcome">
-    <h2 class="welcome-title">合同法律检索助手</h2>
+    <h2 class="welcome-title">合同审查助手</h2>
     <p class="welcome-sub">可信检索 · 合同条款核查 + 法律问答</p>
     <button class="review-entry" @click="$emit('review')">
       核查合同 · 定位风险条款，检索并展示对应法条依据

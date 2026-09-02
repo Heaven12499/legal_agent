@@ -31,7 +31,7 @@ async function submit() {
 <template>
   <div class="auth-wrap">
     <form class="auth-card" @submit.prevent="submit">
-      <div class="auth-brand">合同法律检索助手</div>
+      <div class="auth-brand">合同审查助手</div>
       <p class="auth-sub">登录以访问你的会话（会话按用户隔离，互不可见）</p>
 
       <div class="auth-tabs">

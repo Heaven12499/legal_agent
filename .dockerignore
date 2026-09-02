@@ -1,0 +1,14 @@
+.git/
+.claude/
+.idea/
+.venv/
+__pycache__/
+*.py[cod]
+.env
+data/
+models/
+frontend/node_modules/
+frontend/dist/
+docs/screenshots/
+*.faiss
+corpus/chunks.json

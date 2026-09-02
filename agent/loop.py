@@ -15,17 +15,20 @@ REFLECT_MAX_ROUNDS = int(os.environ.get("REFLECT_MAX_ROUNDS", "2"))
 
 
 def _dispatch(name: str, args: dict) -> dict:
-    """执行单个工具调用（注册表驱动），返回 {text, labels}；未知工具把错误文本喂回 LLM。
+    """执行单个工具调用（注册表驱动），返回 {text, labels, evidence}；未知工具把错误文本喂回 LLM。
 
     新增工具只需在 tools.TOOL_SCHEMAS/TOOL_EXECUTORS 注册，本函数无需改动。"""
     executor = TOOL_EXECUTORS.get(name)
     if executor is None:
-        return {"text": f"未知工具：{name}", "labels": []}
+        return {"text": f"未知工具：{name}", "labels": [], "evidence": []}
     try:
         return executor(**args)
     except TypeError:
         # 参数与 schema 不符（LLM 漏传/错传）——把错误喂回 LLM，让它重试
-        return {"text": f"工具 {name} 参数错误：{args}，请检查参数后重试", "labels": []}
+        return {
+            "text": f"工具 {name} 参数错误：{args}，请检查参数后重试",
+            "labels": [], "evidence": [],
+        }
 
 
 def _strip_fence(text: str) -> str:
@@ -54,8 +57,8 @@ def _parse_reflection(content: str, fallback: str) -> tuple:
     return (s, True) if s else (fallback, False)
 
 
-def _reflect(messages: list, answer: str) -> tuple:
-    """有界反思循环：仅对「条号不存在/张冠李戴」(invalid) 触发，校验→反馈→重写→再校验，
+def _reflect(messages: list, answer: str, allowed: set[tuple[str, int]]) -> tuple:
+    """有界反思循环：对不存在或未从本轮证据取得的引用触发校验→反馈→重写→再校验，
     至多 REFLECT_MAX_ROUNDS 轮。
 
     刻意不把 suspect（条号真但复述偏离）纳入反思：真实运行中 agent 已很少编造（invalid 常为 0），
@@ -64,12 +67,14 @@ def _reflect(messages: list, answer: str) -> tuple:
     反思阶段用 response_format=json_object 强约束 LLM 返回 JSON，解析 fixed_answer；失败则保留。
     返回 (答案, 校验, reflections, stats)，stats 供评测量化 invalid 修复率。
     """
-    check = verify_citations(answer)
+    check = verify_citations(answer, allowed)
     initial_invalid = len(check["invalid"])
+    initial_ungrounded = len(check["ungrounded"])
+    initial_suspect = len(check.get("suspect", []))
     reflections = []
     replaced_any = False
     for k in range(1, REFLECT_MAX_ROUNDS + 1):
-        if not check["invalid"]:
+        if not check["invalid"] and not check["ungrounded"]:
             break
         # DeepSeek/OpenAI 的 json_object 模式要求 prompt 里含 "json" 字样，否则不启用。
         # 显式引导 JSON 结构（含 "JSON"），correction_prompt 核心纠错文本不动。
@@ -88,10 +93,11 @@ def _reflect(messages: list, answer: str) -> tuple:
             if replaced:
                 answer = new_answer
                 replaced_any = True
-            check = verify_citations(answer)
+            check = verify_citations(answer, allowed)
             reflections.append({
                 "round": k,
                 "invalid_remaining": len(check["invalid"]),
+                "ungrounded_remaining": len(check["ungrounded"]),
                 "replaced": replaced,
             })
         except Exception:  # noqa: BLE001 —— 反思调用失败就保留当前答案，仍会 annotate
@@ -100,7 +106,9 @@ def _reflect(messages: list, answer: str) -> tuple:
         "rounds": len(reflections),
         "initial_invalid": initial_invalid,
         "final_invalid": len(check["invalid"]),
-        "initial_suspect": len(check.get("suspect", [])),  # 不再修 suspect，仅记录/如实标注
+        "initial_ungrounded": initial_ungrounded,
+        "final_ungrounded": len(check["ungrounded"]),
+        "initial_suspect": initial_suspect,  # suspect 仅记录/如实标注
         "final_suspect": len(check.get("suspect", [])),
         "replaced": replaced_any,
     }
@@ -120,18 +128,26 @@ def run(query: str, history: list | None = None, max_rounds: int = 10) -> dict:
         messages.extend(history)
     messages.append({"role": "user", "content": query})
     trace = []
+    allowed_evidence: set[tuple[str, int]] = set()
 
     for rnd in range(1, max_rounds + 1):
+        # 第一轮强制检索，避免模型直接按参数记忆作答；后续由模型自行决定是否继续检索。
+        tool_choice = (
+            {"type": "function", "function": {"name": "retrieve"}}
+            if rnd == 1 else "auto"
+        )
         resp = chat(
             messages,
             tools=TOOL_SCHEMAS,
-            tool_choice="auto",
+            tool_choice=tool_choice,
         )
         msg = resp.choices[0].message
 
         # 无工具调用 => 信息已够，直接给答案（M6 反思：校验→必要时重写→脚注）
         if not msg.tool_calls:
-            answer, check, reflections, stats = _reflect(messages, msg.content or "")
+            answer, check, reflections, stats = _reflect(
+                messages, msg.content or "", allowed_evidence
+            )
             return {
                 "answer": answer, "rounds": rnd, "trace": trace,
                 "citation_check": check, "reflections": reflections,
@@ -163,12 +179,14 @@ def run(query: str, history: list | None = None, max_rounds: int = 10) -> dict:
             except json.JSONDecodeError:
                 args = {}
             result = _dispatch(tc.function.name, args)
+            for evidence in result.get("evidence", []):
+                allowed_evidence.add((evidence["law"], evidence["num"]))
             messages.append(
                 {"role": "tool", "tool_call_id": tc.id, "content": result["text"]}
             )
             trace.append(
                 {"round": rnd, "tool": tc.function.name, "query": args.get("query", ""),
-                 "hits": result["labels"]}
+                 "hits": result["labels"], "evidence": result.get("evidence", [])}
             )
 
     # 超轮次仍无答案：返回最后已知信息

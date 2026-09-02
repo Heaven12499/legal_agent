@@ -1,4 +1,6 @@
-# 合同条款法律检索 RAG 系统
+# 面向合同初审的可追溯法律检索 RAG 系统
+
+产品演示名称：**合同审查助手**
 
 面向合同法务初审场景：上传合同或直接提问，系统定位待核查条款，通过混合检索找到相关法律原文，并输出带证据引用的风险说明。项目聚焦 RAG 的检索质量、证据可追溯性与可复现评测，不直接生成、替换或签署合同。
 
@@ -12,8 +14,8 @@
 
 - **合同条款核查**：从合同中定位违约金、格式条款、竞业限制等待核查条款，逐项检索并展示相关法条原文。
 - **法律问答**：针对劳动、合同、买卖等法律问题提问，基于检索到的官方法条回答。
-- **反幻觉引用校验**：答案里每处「《法律名》第X条」都从文本中抽取并逐一核对是否存在于语料；未通过时触发有限纠错，仍无法核实则明确标记，不静默放行。校验同时兼容「民法典585条」等紧凑写法，并对条号真实但复述内容可能偏离原文的情况给出人工核对提示。
-- **确定性评测**：带金标法条的埋点合同测引用召回率，指标全确定性、可复现，当前基线 risk_recall 91% · article_recall 90%（--runs 3，2026-08）。
+- **证据白名单 + 引用校验**：首轮强制检索，最终答案中的每处「《法律名》第X条」不仅核对是否存在于语料，还必须来自本轮 retrieve / lookup_article 的证据集合；未通过时触发有限纠错，仍无法核实则明确标记，不静默放行。校验同时兼容「民法典585条」等紧凑写法，并对条号真实但复述内容可能偏离原文的情况给出人工核对提示。
+- **可复现回归评测**：以带金标法条的埋点合同测引用召回率；金标校验、引用抽取和指标计算均为确定性，端到端结果通过多轮运行汇总，降低 LLM 采样波动的影响。
 - **多轮对话 + 会话持久化**：前端可复制 / 修改 / 重新生成消息，SQLite 落盘会话历史，重启不丢。
 - **多用户登录与会话隔离**：用户名+密码（argon2 哈希）+ JWT 登录；会话按用户隔离互不可见，跨用户读不到、改不到、删不到他人合同。开放注册 + 初始用户，历史匿名会话启动时自动迁移到初始用户名下。
 
@@ -24,7 +26,7 @@
 系统解决的是法务初审中的“从合同条款快速定位到可信法律依据”，而非自动决策或代替法务。处理链路如下：
 
 ```text
-合同条款 / 法律问题 → 查询改写与工具调用 → Hybrid RAG 检索 → 引用核验 → 人工参考结论
+合同条款 / 法律问题 → 查询改写与工具调用 → Hybrid RAG 检索 → 证据白名单 + 引用核验 → 人工参考结论
 ```
 
 输出用于辅助人工判断：
@@ -40,23 +42,29 @@
 
 ## 3. 评测结果
 
-评测集由 4 份埋点合同组成，覆盖采购、租赁、技术服务和劳动合同，共 13 个风险点、11 条独立金标法条。金标法条会在评测启动时先与本地语料逐条核对，缺失即拒绝运行。
+评测集由 8 份埋点合同组成，覆盖采购、租赁、技术服务、劳动、软件许可、借款、装修施工和劳务派遣合同，共 27 个风险点、19 条独立金标法条。金标法条会在评测启动时先与本地语料逐条核对，缺失即拒绝运行。
 
-| 指标 | 含义 | 历史基线（`--runs 3`，2026-08） |
+下表为扩充前 4 份合同的历史基线；扩充后的评测集已完成金标校验，正式演示或提交前应重新运行评测并更新该基线。
+
+| 指标 | 含义 | 历史基线（4 份合同，`--runs 3`，2026-08） |
 |---|---|---:|
 | risk_recall | 每个金标风险点至少命中一条对应法条的平均比例 | 91% |
 | article_recall | 金标法条被输出引用覆盖的比例 | 90% |
 | 引用校验用例 | 法条存在性、旧法名、张冠李戴、重复引用等确定性用例 | 8 / 8 通过 |
 
-`article_precision` 也由评测脚本计算，用于观察额外引用比例。LLM 输出具有采样随机性，正式演示或提交前应重新运行评测并更新上述基线。
+`article_precision` 也由评测脚本计算，用于观察额外引用比例。该评测用于回归验收和工程链路验证，不代表生产环境的法律意见准确率或泛化能力。
 
 ---
 
 ## 4. 效果演示
 
-![主界面](docs/screenshots/main_ui.png)
+### 审查结果示例
 
-![合同条款核查对话](docs/screenshots/img.png)
+![房屋租赁合同风险审查报告](docs/screenshots/img.png)
+
+示例中，系统基于本轮检索到的《民法典》第五百八十五条和合同编通则解释第六十五条，识别每日 1% 违约金的风险，并给出可核验的处理建议。
+
+### 核心检索链路（示意）
 
 ```
 "上传《房屋租赁合同》→ 请核查合同中的风险条款"
@@ -73,8 +81,50 @@
 
 ## 5. 快速开始
 
+### 环境要求
+
+- Docker Desktop（Windows / macOS）或 Docker Engine + Compose Plugin（Linux）
+- DeepSeek API Key（填入 `.env`）
+
+### Docker 启动（推荐）
+
+```powershell
+# 复制环境变量模板，并填写 DEEPSEEK_API_KEY、INIT_PASSWORD、JWT_SECRET
+Copy-Item .env.example .env
+
+# 首次构建并启动；首次运行会下载约 95 MB 的向量模型、生成索引
+docker compose up --build
+```
+
+打开 http://127.0.0.1:8000 。会话数据与模型分别保存在 Docker volume 中，停止或重建容器不会丢失；停止服务使用 `docker compose down`。
+
+常用命令：
+
+```powershell
+docker compose up -d             # 后台启动
+docker compose logs -f app       # 查看首次模型下载 / 索引构建进度
+docker compose down              # 停止并移除容器（保留数据和模型 volume）
+docker compose down -v           # 连同会话数据和模型一并删除
+```
+
+### 本地开发（可选）
+
+如需运行前端热更新或调试 Python，可使用本地 Python 3.12、Node.js 18+ 和 Conda：
+
+```powershell
+conda create --prefix .\.venv python=3.12 pip -y
+conda activate .\.venv
+
+# 安装依赖（二选一）
+python -m pip install -r requirements.txt
+# 国内网络较慢时改用：
+# python -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt
+```
+
+确认当前解释器后再准备模型与索引：
+
 ```bash
-pip install -r requirements.txt            # 清华镜像
+python --version                            # 应为 Python 3.12.x
 python scripts/download_model.py           # 拉 bge 模型到 models/
 python -m core.chunking                    # 生成 chunks.json（语料已入库可跳过）
 
@@ -175,7 +225,7 @@ core/                   # 检索与引用核心
   fileparse.py          # 合同上传解析（.docx/.pdf/.txt → 纯文本）
 agent/                  # agent 循环（LLM = DeepSeek）
   llm.py / tools.py / prompts.py / loop.py / session.py
-sample_contracts/       # 评测埋点合同（4 份，含金标风险点）
+sample_contracts/       # 评测埋点合同（8 份、27 个风险点、19 条独立金标法条）
 scripts/                # 验收与评测脚本（见第 10 节）
 main.py                 # FastAPI 纯 API 后端（/api/* + CORS；演示模式托管前端 dist）
 cli.py                  # CLI 入口，与 web 共用 agent.loop.run
@@ -201,13 +251,14 @@ data/                   # SQLite 会话库 sessions.db（gitignored）
 ## 10. 测试 / 验收
 
 ```bash
-python scripts/verify_retrieval.py         # 检索验收：11/11 命中
-python scripts/verify_citations.py         # 引用校验验收：8/8 通过
+python scripts/verify_retrieval.py         # 检索验收：13 个固定金标查询命中
+python scripts/verify_citations.py         # 引用 + 本轮证据白名单验收
+python scripts/verify_session_contract.py  # 普通追问保留合同、显式移除才清空
 python -X utf8 scripts/eval_review.py --dry # 只校验金标与测试集，不调用 LLM
 python -X utf8 scripts/eval_review.py      # 评测：确定性引用召回率（--runs 调重复次数）
 ```
 
-评测指标（`scripts/eval_review.py`，4 份埋点合同，复用引用校验、无裁判 LLM）：
+评测指标（`scripts/eval_review.py`，8 份埋点合同，复用引用校验、无裁判 LLM）：
 - **risk_recall**（主指标）：随机单次运行里风险点被引到金标法条的比例
 - **article_recall**：金标法条被引到过的比例
 - **article_precision**：引用里属于金标的比例

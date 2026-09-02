@@ -66,4 +66,19 @@ for i, (note, text, exp_invalid, exp_total) in enumerate(CASES, 1):
 if fail:
     print(f"=== {fail} 项未过，请检查 ===")
     sys.exit(1)
+
+# 证据白名单：法条即便存在于语料，只要不是本轮 retrieve / lookup_article 返回的结果，
+# 也必须被标成 ungrounded，不能冒充本轮 RAG 证据。
+grounded = verify_citations(
+    "依据《民法典》第585条，违约金过高可请求调整。",
+    {("民法典（合同编）", 585)},
+)
+ungrounded = verify_citations(
+    "依据《民法典》第586条，定金不得超过主合同标的额的百分之二十。",
+    {("民法典（合同编）", 585)},
+)
+if grounded["ungrounded"] or len(ungrounded["ungrounded"]) != 1:
+    print("=== 证据白名单校验未通过，请检查 ===")
+    sys.exit(1)
+print("[OK] 证据白名单：只允许本轮检索到的法条被引用")
 print("=== 全部通过 = 校验器可用，可安全接入 agent loop ===")

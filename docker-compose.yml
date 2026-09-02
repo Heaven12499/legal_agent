@@ -1,0 +1,17 @@
+services:
+  app:
+    build: .
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    env_file:
+      - .env
+    volumes:
+      # 会话库、初始用户和 JWT 密钥在重建容器后仍保留。
+      - rag-data:/app/data
+      # 首次下载的 embedding 模型持久化，后续启动无需再次下载。
+      - rag-models:/app/models
+    restart: unless-stopped
+
+volumes:
+  rag-data:
+  rag-models:

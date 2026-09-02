@@ -14,7 +14,7 @@ function relTime(ts) {
 <template>
   <aside class="sidebar">
     <div class="brand">
-      <span class="brand-name">合同法律检索助手</span>
+      <span class="brand-name">合同审查助手</span>
     </div>
 
     <button id="new-chat-btn" type="button" @click="emit('new')">＋ 新对话</button>

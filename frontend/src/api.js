@@ -40,10 +40,16 @@ export function me() {
   return request("/me");
 }
 
-export function sendChat(message, sessionId, contract) {
+export function sendChat(message, sessionId, contract = undefined, contractName = undefined) {
+  const payload = { message, session_id: sessionId };
+  // undefined = 普通追问，后端保留历史附件；null = 用户明确移除附件。
+  if (contract !== undefined) {
+    payload.contract = contract;
+    if (contractName !== undefined) payload.contract_name = contractName;
+  }
   return request("/chat", {
     method: "POST",
-    body: JSON.stringify({ message, session_id: sessionId, ...(contract ? { contract } : {}) }),
+    body: JSON.stringify(payload),
   });
 }
 

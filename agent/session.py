@@ -19,7 +19,8 @@ CREATE TABLE IF NOT EXISTS sessions (
     session_id TEXT PRIMARY KEY,
     created_at REAL NOT NULL,
     updated_at REAL NOT NULL,
-    contract TEXT
+    contract TEXT,
+    contract_name TEXT
 );
 CREATE TABLE IF NOT EXISTS messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -34,6 +35,7 @@ CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
 # 旧库缺列：建表后幂等补列（ALTER TABLE ADD COLUMN 只执行一次）
 _MIGRATE_CITATION = "ALTER TABLE messages ADD COLUMN citation TEXT"
 _MIGRATE_CONTRACT = "ALTER TABLE sessions ADD COLUMN contract TEXT"
+_MIGRATE_CONTRACT_NAME = "ALTER TABLE sessions ADD COLUMN contract_name TEXT"
 _MIGRATE_USER = "ALTER TABLE sessions ADD COLUMN user_id INTEGER"
 
 
@@ -59,6 +61,11 @@ def _connect() -> sqlite3.Connection:
     )
     if not has_contract:
         conn.execute(_MIGRATE_CONTRACT)
+    has_contract_name = any(
+        r[1] == "contract_name" for r in conn.execute("PRAGMA table_info(sessions)")
+    )
+    if not has_contract_name:
+        conn.execute(_MIGRATE_CONTRACT_NAME)
     has_user = any(
         r[1] == "user_id" for r in conn.execute("PRAGMA table_info(sessions)")
     )
@@ -94,7 +101,8 @@ def migrate_anonymous(user_id: int) -> int:
         return cur.rowcount
 
 
-def save_contract(user_id: int, session_id: str, contract: str | None) -> None:
+def save_contract(user_id: int, session_id: str, contract: str | None,
+                  contract_name: str | None = None) -> None:
     """存/清会话级待审查合同：每次发送覆盖，传 None（用户移除附件）则清空。
 
     合同存在 sessions 表而非 messages，不占对话气泡；重新生成时据此恢复上下文。
@@ -103,10 +111,11 @@ def save_contract(user_id: int, session_id: str, contract: str | None) -> None:
     with closing(_connect()) as conn, conn:
         _check_writable(user_id, session_id, conn)
         conn.execute(
-            "INSERT INTO sessions(session_id, user_id, created_at, updated_at, contract) "
-            "VALUES(?, ?, ?, ?, ?) "
-            "ON CONFLICT(session_id) DO UPDATE SET contract=excluded.contract, updated_at=excluded.updated_at",
-            (session_id, user_id, now, now, contract),
+            "INSERT INTO sessions(session_id, user_id, created_at, updated_at, contract, contract_name) "
+            "VALUES(?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(session_id) DO UPDATE SET contract=excluded.contract, "
+            "contract_name=excluded.contract_name, updated_at=excluded.updated_at",
+            (session_id, user_id, now, now, contract, contract_name),
         )
 
 
@@ -118,6 +127,18 @@ def get_contract(user_id: int, session_id: str) -> str:
             (session_id, user_id),
         ).fetchone()
     return (row[0] or "") if row else ""
+
+
+def get_contract_meta(user_id: int, session_id: str) -> dict | None:
+    """返回附件展示所需元数据，不把可能很长的合同再次传回浏览器。"""
+    with closing(_connect()) as conn:
+        row = conn.execute(
+            "SELECT contract, contract_name FROM sessions WHERE session_id=? AND user_id=?",
+            (session_id, user_id),
+        ).fetchone()
+    if not row or not row[0]:
+        return None
+    return {"name": row[1] or "已附加合同", "chars": len(row[0])}
 
 
 def get_history(user_id: int, session_id: str) -> list[dict]:

@@ -15,7 +15,8 @@ const input = ref("");
 const sending = ref(false);
 const uploading = ref(false);
 const fileInput = ref(null);
-const uploadedFile = ref(null); // {name, text} 已附加的合同文件，不进输入框
+const uploadedFile = ref(null); // {name, text?}；历史附件只保留名称，全文仍在服务端
+const clearContractOnNext = ref(false); // 显式移除附件后，下一条请求才传 contract: null
 const pendingDelete = ref(null); // 待删除的 session_id，非空则弹确认框
 const editingId = ref(null); // 正在修改的用户消息 id，非空则其气泡进入编辑态
 
@@ -31,6 +32,8 @@ async function openSession(sid) {
   const data = await getHistory(sid);
   sessionId.value = sid;
   messages.value = data.history;
+  uploadedFile.value = data.contract ? { name: data.contract.name } : null;
+  clearContractOnNext.value = false;
   editingId.value = null;
   loadSessions();
 }
@@ -59,6 +62,8 @@ function newChat() {
   // 只开一个全新的空会话，不删当前会话（保留在侧栏可点回）
   sessionId.value = crypto.randomUUID();
   messages.value = [];
+  uploadedFile.value = null;
+  clearContractOnNext.value = false;
   editingId.value = null;
   loadSessions();
 }
@@ -87,6 +92,7 @@ async function onFile(e) {
   try {
     const data = await uploadFile(file);
     uploadedFile.value = { name: data.filename, text: data.text };
+    clearContractOnNext.value = false;
   } catch (err) {
     messages.value.push({ role: "assistant", content: `上传失败：${err.message}` });
   } finally {
@@ -96,18 +102,23 @@ async function onFile(e) {
 
 // 移除已附加的合同文件（下次发送不再携带）
 function removeUpload() {
+  clearContractOnNext.value = !!uploadedFile.value;
   uploadedFile.value = null;
 }
 
 async function submit() {
   if (sending.value || uploading.value) return;
   const q = input.value.trim();
-  const contract = uploadedFile.value ? uploadedFile.value.text : null;
+  // 新上传文本才随请求发送；已持久化的附件省略字段即可由服务端保留。
+  const contract = uploadedFile.value
+    ? (uploadedFile.value.text ?? undefined)
+    : (clearContractOnNext.value ? null : undefined);
   // 合同走独立 contract 参数发给 agent；输入框只发用户问题（或默认审查指令）
-  const msg = q || (contract ? "请核查这份合同中的风险条款，并为每个结论检索法律依据" : "");
+  const msg = q || (uploadedFile.value ? "请核查这份合同中的风险条款，并为每个结论检索法律依据" : "");
   if (!msg) return;
   input.value = "";
-  await sendAndAppend(msg, contract);
+  const sent = await sendAndAppend(msg, contract);
+  if (sent && contract === null) clearContractOnNext.value = false;
 }
 
 // 真正发一条消息并追加到气泡：成功则带后端返回的消息 id（供后续修改/重新生成定位）
@@ -126,7 +137,8 @@ async function sendAndAppend(msg, contract) {
   messages.value.push(userMsg);
   sending.value = true;
   try {
-    const data = await sendChat(msg, sessionId.value, contract);
+    const contractName = contract && uploadedFile.value?.text ? uploadedFile.value.name : undefined;
+    const data = await sendChat(msg, sessionId.value, contract, contractName);
     userMsg.id = data.user_id;
     messages.value.push({
       id: data.assistant_id,
@@ -136,8 +148,10 @@ async function sendAndAppend(msg, contract) {
       citation_check: data.citation_check,
     });
     loadSessions();
+    return true;
   } catch (err) {
     messages.value.push({ role: "assistant", content: `请求失败：${err.message}` });
+    return false;
   } finally {
     sending.value = false;
   }
@@ -162,8 +176,11 @@ async function onEditSubmit(msg, newText) {
     await truncateHistory(sessionId.value, msg.id);
     // 修改重发也要带上当前附加的合同，否则会把会话里已存的合同清掉；
     // 编辑框里是「合同全文+问题」的展示文本，需先剥掉合同前缀，避免重复拼接
-    const contractText = uploadedFile.value ? uploadedFile.value.text : null;
-    await sendAndAppend(stripContract(newText, contractText), contractText);
+    const contractText = uploadedFile.value
+      ? (uploadedFile.value.text ?? undefined)
+      : (clearContractOnNext.value ? null : undefined);
+    const sent = await sendAndAppend(stripContract(newText, contractText), contractText);
+    if (sent && contractText === null) clearContractOnNext.value = false;
   } catch (err) {
     messages.value.push({ role: "assistant", content: `请求失败：${err.message}` });
   }
@@ -197,6 +214,7 @@ function handleAuthSuccess(data) {
   sessionId.value = crypto.randomUUID();
   messages.value = [];
   uploadedFile.value = null;
+  clearContractOnNext.value = false;
   loadSessions();
 }
 
@@ -207,6 +225,7 @@ function logout() {
   sessions.value = [];
   sessionId.value = crypto.randomUUID();
   uploadedFile.value = null;
+  clearContractOnNext.value = false;
 }
 
 onMounted(async () => {

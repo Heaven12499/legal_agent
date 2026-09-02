@@ -90,18 +90,26 @@ def format_chunk(chunk: dict, idx: int) -> str:
     return f"[{idx}] {label(chunk)}\n{chunk['文本']}"
 
 
+def evidence_ref(chunk: dict) -> dict:
+    """给 trace/引用校验使用的最小证据标识。"""
+    return {"law": chunk["法律"], "num": chunk["序数"], "label": label(chunk)}
+
+
 def retrieve(query: str, k: int = 5) -> dict:
-    """执行一次检索，返回 {text: 给 LLM 看的文本, labels: 命中展示名（供 trace 记录）}。
+    """执行一次检索，返回给 LLM 的文本、展示标签及本轮可引用证据。
 
     labels 只记主命中（top-k），供前端 trace 展示；text 在给 LLM 时补上相邻条上下文。"""
     primary = get_hybrid().search(query, k)
     labels = [label(h) for h in primary]
     if not primary:
         text = f"检索「{query}」未命中任何条文或案例，请换一种法律表述再试。"
+        evidence = []
     else:
         hits = _expand_neighbors(primary)
         text = "\n\n".join(format_chunk(h, i + 1) for i, h in enumerate(hits))
-    return {"text": text, "labels": labels}
+        # 相邻条也实际交给了模型，因此同样属于可追溯证据。
+        evidence = [evidence_ref(h) for h in hits]
+    return {"text": text, "labels": labels, "evidence": evidence}
 
 
 LOOKUP_TOOL = {
@@ -143,9 +151,15 @@ def lookup_article(law_name: str, article_number: int) -> dict:
             "text": f"未找到《{law_name}》第{article_number}条：该条不在语料中，"
                     "请核对法律名/条号，或改用 retrieve 检索。",
             "labels": [],
+            "evidence": [],
             "found": False,
         }
-    return {"text": format_chunk(ch, 1), "labels": [label(ch)], "found": True}
+    return {
+        "text": format_chunk(ch, 1),
+        "labels": [label(ch)],
+        "evidence": [evidence_ref(ch)],
+        "found": True,
+    }
 
 
 # 工具注册表：新增工具只需在 TOOL_SCHEMAS 加 schema、TOOL_EXECUTORS 加执行器，loop 零改动。
