@@ -6,6 +6,10 @@
 
 合同初审的实际难点不是“能否生成一段回答”，而是能否把合同中的具体条款稳定地映射到可核验的法律依据。为此，系统使用查询改写、向量 + BM25 混合检索、相邻法条扩展和引用校验，解决术语表达差异、关联法条遗漏与法条引用不可追溯的问题。
 
+> **核心链路**：合同条款 → Query Rewrite → Hybrid Retrieval（Vector + BM25 + RRF）→ Evidence Whitelist → Citation Verification → Limited Reflection → Offline Eval
+>
+> **当前基线**：8 份埋点合同｜27 个风险点｜19 条独立金标法条｜风险点召回率 **80%**｜法条召回率 **98%**｜引用校验确定性用例 **8 / 8** 通过。完整口径见[评测结果](#3-评测结果)。
+
 ---
 
 
@@ -26,7 +30,8 @@
 系统解决的是法务初审中的“从合同条款快速定位到可信法律依据”，而非自动决策或代替法务。处理链路如下：
 
 ```text
-合同条款 / 法律问题 → 查询改写与工具调用 → Hybrid RAG 检索 → 证据白名单 + 引用核验 → 人工参考结论
+在线审查：合同条款 / 法律问题 → Query Rewrite → Hybrid Retrieval → Evidence Whitelist → Citation Verification → Limited Reflection → 人工参考结论
+离线验证：埋点合同 + 金标法条 → Eval（检索、引用与纠错指标）
 ```
 
 输出用于辅助人工判断：
@@ -44,15 +49,28 @@
 
 评测集由 8 份埋点合同组成，覆盖采购、租赁、技术服务、劳动、软件许可、借款、装修施工和劳务派遣合同，共 27 个风险点、19 条独立金标法条。金标法条会在评测启动时先与本地语料逐条核对，缺失即拒绝运行。
 
-下表为扩充前 4 份合同的历史基线；扩充后的评测集已完成金标校验，正式演示或提交前应重新运行评测并更新该基线。
+### 主链路评测
 
-| 指标 | 含义 | 历史基线（4 份合同，`--runs 3`，2026-08） |
+下表为当前 8 份合同的完整基线。每份合同重复运行 3 次：`risk_recall` 按各风险点在 3 次运行中的命中率计算，`article_recall` 与 `article_precision` 按 3 次运行的引用并集计算。
+
+| 指标 | 含义 | 当前基线（8 份合同，`--runs 3`，2026-09） |
 |---|---|---:|
-| risk_recall | 每个金标风险点至少命中一条对应法条的平均比例 | 91% |
-| article_recall | 金标法条被输出引用覆盖的比例 | 90% |
+| risk_recall | 每个金标风险点至少命中一条对应法条的平均比例 | 80% |
+| article_recall | 金标法条被输出引用覆盖的比例 | 98% |
+| article_precision | 输出引用中属于金标法条的比例 | 42% |
 | 引用校验用例 | 法条存在性、旧法名、张冠李戴、重复引用等确定性用例 | 8 / 8 通过 |
 
-`article_precision` 也由评测脚本计算，用于观察额外引用比例。该评测用于回归验收和工程链路验证，不代表生产环境的法律意见准确率或泛化能力。
+> **口径提示：80% 与 94% 为不同统计口径，不进行前后效果比较。** 主链路 `risk_recall` 统计各风险点在 3 次运行中的平均命中率；反思专项的 `risk_recall` 统计 3 次运行引用并集的覆盖情况。
+>
+> **如何解读 `article_precision 42%`：非金标引用不等于错误引用。** 相邻法条扩展和补充性法律依据同样会被记为非金标引用，因此该指标用于监控“额外引用倾向”，不代表引用真实性、法律回答准确率或生产环境表现。
+
+该评测用于回归验收和工程链路验证，不代表生产环境的法律意见准确率或泛化能力。
+
+### 引用纠错专项评测
+
+反思专项复用同一批 8 份合同，从 `run()` 的 `reflection_stats` 统计触发、修复和残留问题。当前基线（`--runs 3`）为：**反思触发率 17% · invalid 修复率 50% · 反思后 invalid 均值 0.08 · risk_recall 94%**。
+
+反思只由不存在或张冠李戴的 invalid 引用触发；suspect（条号真实但复述可能偏离原文）残留均值约 6，主要受句尾引用忠实度窗口限制，系统仅标注并提示人工核对。
 
 ---
 
@@ -146,7 +164,22 @@ cd frontend && npm run build && python main.py   # → 开 http://127.0.0.1:8000
 
 ## 6. 架构 / 设计
 
-### 检索：向量 + BM25 双路，RRF 融合
+### 核心链路（优先阅读）
+
+```text
+合同条款
+  → Query Rewrite
+  → Hybrid Retrieval（Vector + BM25 + RRF）
+  → 相邻法条扩展
+  → Evidence Whitelist
+  → Citation Verification
+  → Limited Reflection（仅 invalid 引用）
+  → 带证据的人工参考结论
+
+离线：埋点合同 + 金标法条 → Eval
+```
+
+### Hybrid Retrieval：向量 + BM25 双路，RRF 融合
 
 - **向量（bge-small-zh）**：语义联想，"换说法"也懂；短口语查询时噪声混入。
 - **BM25（jieba 分词）**：词面精确匹配，"仲裁时效/经济补偿"一字不差；不懂同义改写。
@@ -161,18 +194,24 @@ fusion_score(i) = Σ_source 1 / (rrf_k + rank(source, i))   # 典型 rrf_k = 60
 - **相邻法条上下文扩展**（默认开启）：命中一条后把同法相邻条（序数 ±1）也拼进给 LLM 的上下文——法律条文高度关联（如 585 违约金常要和 584/586 配套引用），单条 chunk 里 LLM 看不到邻居。主命中 labels/trace 不受影响。
 - **reranker 精排**（P1，默认关闭）：设置 `RERANK=1` 且安装 `BAAI/bge-reranker-base` 后，对 RRF 融合的 top-20 用 bge-reranker 打分取 top-5；模型不可用则静默回退 RRF。
 
-### 单智能体循环
+### Query Rewrite 与工具调用
 
 一个 while 循环（`agent/loop.py`），由同一 Agent 根据当前证据决定继续检索、精确查条文或生成回答。每一步显式、可打断、可打印 trace：
 **透明**（trace 记录每轮工具调用与查询改写过程）、**可控**（`max_rounds` 硬上限防无限检索）。
 
-**三个工程化增强**：
-- **反思/自查循环**：答案生成后先 `verify_citations` 校验；仅当存在「条号不存在 / 张冠李戴」(invalid)
-  时才带反馈让 agent 按 JSON 重写，再校验，至多 `REFLECT_MAX_ROUNDS` 轮（`response_format=json_object`
-  强约束，解析 `fixed_answer`）。刻意**不为 suspect（条号真但复述偏离）触发反思**——真实运行 agent
-  已很少编造，suspect 又多源于 `check_faithfulness` 对结构化答案（表格/列表）的误报，为它调 LLM 重写
-  性价比低；这类只由 `annotate` 如实标注 ⚠️，不静默通过、也不烧 token。反思轮次记入 trace，
-  修复率由 `eval_reflection.py` 量化。
+### Evidence Whitelist、Citation Verification 与 Limited Reflection
+
+答案生成后先由 `verify_citations` 校验：最终引用既要真实存在于本地语料，也必须来自本轮 `retrieve` / `lookup_article` 的证据集合。仅当存在「条号不存在 / 张冠李戴」(invalid)
+时才带反馈让 agent 按 JSON 重写，再校验，至多 `REFLECT_MAX_ROUNDS` 轮（`response_format=json_object`
+强约束，解析 `fixed_answer`）。刻意**不为 suspect（条号真但复述偏离）触发反思**——真实运行 agent
+已很少编造，suspect 又多源于 `check_faithfulness` 对结构化答案（表格/列表）的误报，为它调 LLM 重写
+性价比低；这类只由 `annotate` 如实标注 ⚠️，不静默通过、也不烧 token。反思轮次记入 trace，
+修复率由 `eval_reflection.py` 量化。
+
+### 工程化补充
+
+以下能力服务于可用性、可维护性和安全性，不改变上述核心 RAG 链路。
+
 - **长会话上下文管理**（`agent/context.py`）：多轮 history 超上限时，把最旧轮次压成一条
   「对话摘要」（`MAX_HISTORY_MESSAGES`/`KEEP_RECENT_MESSAGES` env 可调），再接最近若干轮；
   待审查合同走独立注入，永不被裁剪。短会话零影响。
@@ -181,7 +220,7 @@ fusion_score(i) = Σ_source 1 / (rrf_k + rank(source, i))   # 典型 rrf_k = 60
   法条原文（数据真实不虚构），供反思阶段复核可疑引用，与 `check_faithfulness` 形成闭环。
 
 
-### Web 架构：前后端分离 + SQLite 持久化
+#### Web 架构：前后端分离 + SQLite 持久化
 
 - 后端 FastAPI 只出 JSON（`/api/*` + CORS），前端独立 Vite 工程。开发时 Vite proxy 免 CORS；演示时托管 `frontend/dist/` 单进程运行。markdown 渲染先 escapeHtml 防 XSS 再逐行渲染。
 - SQLite 落盘会话（标准库 `sqlite3`），历史侧栏重启不丢；公开接口不变，agent 核心零改动。
@@ -256,18 +295,7 @@ python scripts/verify_citations.py         # 引用 + 本轮证据白名单验�
 python scripts/verify_session_contract.py  # 普通追问保留合同、显式移除才清空
 python -X utf8 scripts/eval_review.py --dry # 只校验金标与测试集，不调用 LLM
 python -X utf8 scripts/eval_review.py      # 评测：确定性引用召回率（--runs 调重复次数）
+python -X utf8 scripts/eval_reflection.py  # 评测：引用反思触发、修复与残留情况
 ```
 
-评测指标（`scripts/eval_review.py`，8 份埋点合同，复用引用校验、无裁判 LLM）：
-- **risk_recall**（主指标）：随机单次运行里风险点被引到金标法条的比例
-- **article_recall**：金标法条被引到过的比例
-- **article_precision**：引用里属于金标的比例
-
-LLM 采样有随机性，故每份跑多轮聚合取均值；金标法条启动时逐一核验必须真实存在于语料，否则拒绝运行。
-
-反思循环评测（`python -X utf8 scripts/eval_reflection.py [--runs N]`）：复用同一批埋点合同，从
-`run()` 的 `reflection_stats` 聚合出反幻觉指标——**触发反思率 / invalid 修复率 / 结构化替换率**，
-以及反思后 invalid、suspect 残留，顺带重算 risk_recall 证明反思不损害检索召回。
-当前基线（--runs 3）：**反思触发率 17% · invalid 修复 50% · 反思后 invalid 均值 0.08 ·
-risk_recall 94%**。触发率低是设计使然——真实运行 agent 已很少编造条号，反思只对真问题烧 token；
-suspect 误报残留均值约 6（句尾引用的忠实度窗口局限）为已知弱项，只标注、不自动重写。
+前三项为确定性验收；两项 `eval_*` 评测调用 LLM，默认每份合同重复运行 3 次，并在启动时校验全部金标法条。评测集、指标口径和当前基线统一见第 3 节。
