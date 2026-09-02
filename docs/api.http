@@ -1,11 +1,28 @@
-# Test your FastAPI endpoints（/api 前缀，前端分离后纯 API）
+# JetBrains HTTP Client 手工接口示例。
+# 将用户名、密码改为 .env 中 INIT_USERNAME / INIT_PASSWORD，先执行登录请求。
+@baseUrl = http://127.0.0.1:8000
+@username = admin
+@password = change-me
 
-GET http://127.0.0.1:8000/api/chat/sessions
-Accept: application/json
+### 登录并保存 JWT
+# @name login
+POST {{baseUrl}}/api/login
+Content-Type: application/json
 
-###
+{
+  "username": "{{username}}",
+  "password": "{{password}}"
+}
 
-POST http://127.0.0.1:8000/api/chat
+> {% client.global.set("auth_token", response.body.token); %}
+
+### 查询当前用户
+GET {{baseUrl}}/api/me
+Authorization: Bearer {{auth_token}}
+
+### 新建会话并提问
+POST {{baseUrl}}/api/chat
+Authorization: Bearer {{auth_token}}
 Content-Type: application/json
 
 {
@@ -13,9 +30,9 @@ Content-Type: application/json
   "session_id": "test-session-1"
 }
 
-###
-
-POST http://127.0.0.1:8000/api/chat
+### 继续追问
+POST {{baseUrl}}/api/chat
+Authorization: Bearer {{auth_token}}
 Content-Type: application/json
 
 {
@@ -23,13 +40,10 @@ Content-Type: application/json
   "session_id": "test-session-1"
 }
 
-###
+### 查询会话历史
+GET {{baseUrl}}/api/chat/sessions/test-session-1/history
+Authorization: Bearer {{auth_token}}
 
-DELETE http://127.0.0.1:8000/api/chat/sessions/test-session-1
-
-###
-
-GET http://127.0.0.1:8000/api/chat/sessions/test-session-1/history
-Accept: application/json
-
-###
+### 删除测试会话
+DELETE {{baseUrl}}/api/chat/sessions/test-session-1
+Authorization: Bearer {{auth_token}}
