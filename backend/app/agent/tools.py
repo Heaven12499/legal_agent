@@ -8,8 +8,8 @@ agent 的工具层：retrieve 工具的 function calling schema + 执行器。
 import json
 from pathlib import Path
 
-from ..rag.hybrid import get_hybrid
-from ..rag.citations import normalize_law
+from ..core.hybrid import get_hybrid
+from ..core.citations import normalize_law
 
 # 命中法条后，把同法相邻条（序数 ±NEIGHBOR_SPAN）也补进上下文。
 # 法律条文高度关联（如 585 违约金常要和 584/586 配套引用），单条 chunk 里 LLM 看不到邻居。

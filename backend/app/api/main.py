@@ -1,23 +1,23 @@
 # -*- coding: utf-8 -*-
 """法律 RAG 助手 Web 服务：纯 API 后端，与 Vue 前端分离。
-开发: python -m backend.app.api + cd frontend && npm run dev（5173 代理到 8000）
-演示: cd frontend && npm run build 后 python -m backend.app.api 单进程直开 8000。"""
+开发: python -m backend.app.api.main + cd frontend && npm run dev（5173 代理到 8000）
+演示: cd frontend && npm run build 后 python -m backend.app.api.main 单进程直开 8000。"""
 import os
 import secrets
 import uuid
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 import uvicorn
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from .infra import session, auth
-from .agent import context
-from .agent.loop import run
-from .services import fileparse
+from ..infra import session, auth
+from ..agent import context
+from ..agent.loop import run
+from ..services import fileparse
 
 app = FastAPI(title="合同法律检索 RAG 助手")
 
@@ -244,7 +244,7 @@ def get_chat_history(sid: str, user: dict = Depends(get_current_user)) -> dict:
 
 
 # 启动即 seed 初始用户 + 迁移历史未归属会话（幂等）。放模块末尾，保证所有依赖已定义，
-# 且 `python -m backend.app.api` 与 uvicorn 直接跑都能生效。
+# 且 `python -m backend.app.api.main` 与 uvicorn 直接跑都能生效。
 _init_auth()
 
 # 演示模式：前端构建产物存在才托管（SPA，API 路由挂载其后，优先匹配）

@@ -7,7 +7,7 @@ import os
 from .llm import chat
 from .prompts import SYSTEM_PROMPT
 from .tools import TOOL_SCHEMAS, TOOL_EXECUTORS
-from ..rag.citations import verify_citations, correction_prompt, annotate
+from ..core.citations import verify_citations, correction_prompt, annotate
 
 # 反思循环上限：verify→feedback→rewrite→re-verify 至多 N 轮（env 可调）。
 # 与 max_rounds（检索轮预算）分开，反思不挤占检索轮。

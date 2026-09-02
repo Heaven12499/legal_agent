@@ -17,9 +17,9 @@ sys.stdout.reconfigure(encoding="utf-8")
 # 把项目根目录放进 sys.path，保证从任意目录直接运行本脚本也能导入后端包。
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from backend.app.rag.bm25 import get_bm25
-from backend.app.rag.hybrid import get_hybrid
-from backend.app.rag.retriever import get_retriever
+from backend.app.core.bm25 import get_bm25
+from backend.app.core.hybrid import get_hybrid
+from backend.app.core.retriever import get_retriever
 
 # (查询, 应在混合 top-5 命中的 gold 集合, 备注)
 TEST_CASES = [

@@ -13,7 +13,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
-from backend.app.rag.citations import extract_citations, VALID
+from backend.app.core.citations import extract_citations, VALID
 from backend.app.agent.loop import run
 
 

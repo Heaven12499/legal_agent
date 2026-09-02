@@ -7,7 +7,7 @@ import json
 import re
 
 from .llm import chat
-from ..rag.citations import extract_citations, VALID
+from ..core.citations import extract_citations, VALID
 
 REVISE_PROMPT = """你是合同修订助手。下面给你一份合同全文和针对它的审查报告（含风险点与法律依据）。
 

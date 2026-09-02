@@ -45,7 +45,7 @@ def _load() -> tuple[dict, dict]:
     TEXTS = {规范法名: {序数 int: 条文文本}}（供内容忠实度核对）"""
     path = PROJECT_ROOT / "corpus" / "chunks.json"
     if not path.exists():
-        raise FileNotFoundError("缺少 corpus/chunks.json，请先运行 python -m backend.app.rag.chunking")
+        raise FileNotFoundError("缺少 corpus/chunks.json，请先运行 python -m backend.app.core.chunking")
     valid: dict = {}
     texts: dict = {}
     for ch in json.loads(path.read_text(encoding="utf-8")):

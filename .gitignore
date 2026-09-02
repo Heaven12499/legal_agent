@@ -12,7 +12,7 @@ __pycache__/
 *.index
 *.faiss
 
-# 切分派生产物（chunks.json 可由 python -m backend.app.rag.chunking 重新生成）
+# 切分派生产物（chunks.json 可由 python -m backend.app.core.chunking 重新生成）
 corpus/chunks.json
 
 # 模型文件（由 backend.scripts.download_model 下载，不入库）

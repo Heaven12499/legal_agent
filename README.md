@@ -144,7 +144,7 @@ python -m pip install -r requirements.txt
 ```bash
 python --version                            # 应为 Python 3.12.x
 python -m backend.scripts.download_model   # 拉 bge 模型到 models/
-python -m backend.app.rag.chunking         # 生成 chunks.json（语料已入库可跳过）
+python -m backend.app.core.chunking        # 生成 chunks.json（语料已入库可跳过）
 
 # 复制 .env.example 为 .env，填入 DEEPSEEK_API_KEY
 python -m backend.app.cli "试用期一般多久" # agent 端到端（CLI）
@@ -153,11 +153,11 @@ python -m backend.app.cli "试用期一般多久" # agent 端到端（CLI）
 cd frontend
 npm install && npm run dev                  # 前端 5173，/api 代理到 8000
 # 另开终端并回到项目根目录：
-python -m backend.app.api                   # 后端 API 在 127.0.0.1:8000
+python -m backend.app.api.main              # 后端 API 在 127.0.0.1:8000
 
 # 演示（单进程）：
 cd frontend && npm run build
-cd .. && python -m backend.app.api          # → 开 http://127.0.0.1:8000
+cd .. && python -m backend.app.api.main     # → 开 http://127.0.0.1:8000
 
 # 首次启动会自动建初始用户（INIT_USERNAME/INIT_PASSWORD，未设则生成随机密码并打印），
 # 并把历史未归属会话迁移到其名下；也可直接在前端注册新账号。
@@ -243,7 +243,7 @@ fusion_score(i) = Σ_source 1 / (rrf_k + rank(source, i))   # 典型 rrf_k = 60
 - 《劳动法》《劳动合同法》《劳动合同法实施条例》；
 - 《社会保险法》《劳动争议调解仲裁法》。
 
-文本来源记录在各语料文件开头，主要来自国家法律法规数据库与中国人大网等公开官方渠道。语料文件和构建产物均保存在 `corpus/`，可通过 `python -m backend.app.rag.chunking` 重建索引。
+文本来源记录在各语料文件开头，主要来自国家法律法规数据库与中国人大网等公开官方渠道。语料文件和构建产物均保存在 `corpus/`，可通过 `python -m backend.app.core.chunking` 重建索引。
 
 ### 已知限制
 
@@ -256,19 +256,14 @@ fusion_score(i) = Σ_source 1 / (rrf_k + rank(source, i))   # 典型 rrf_k = 60
 ## 8. 目录结构
 
 ```
-frontend/               # Vue 3 + Vite 前端
-backend/                 # Python 后端
-  app/
-    api.py               # FastAPI API + 演示模式 SPA 托管
-    cli.py               # CLI 入口，与 Web 共用 backend.app.agent.loop.run
-    agent/               # Query Rewrite、工具调用、LLM 循环与 Reflection
-    rag/                 # 检索、切分、向量化、RRF 与引用校验
-    infra/               # 鉴权与 SQLite 会话存储
-    services/            # 合同文件解析与 .docx 导出
-  scripts/               # 数据准备、验收与离线评测（见第 10 节）
-corpus/                 # 语料 + 派生索引（8 部官方原文，1023 条）
-sample_contracts/       # 评测埋点合同（8 份、27 个风险点、19 条独立金标法条）
-data/                   # SQLite 会话库 sessions.db（gitignored）
+frontend/               # Vue 3 + Vite 用户界面
+backend/                # Python 后端
+  app/                  # api/、core/、agent/、infra/ 与 services/
+  scripts/              # 语料准备、验收与离线评测
+corpus/                 # 官方法律原文与可重建索引
+sample_contracts/       # 8 份埋点评测合同与金标
+docs/                   # 项目文档与演示截图
+docker/                 # 容器启动脚本
 ```
 
 ---

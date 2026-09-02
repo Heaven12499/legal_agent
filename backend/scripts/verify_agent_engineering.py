@@ -11,7 +11,7 @@ import backend.app.agent.llm as llm
 from backend.app.agent import context, tools
 from backend.app.agent.loop import run, _dispatch
 from backend.app.agent.prompts import faithfulness_prompt
-from backend.app.rag.citations import check_faithfulness, verify_citations
+from backend.app.core.citations import check_faithfulness, verify_citations
 
 from types import SimpleNamespace as NS
 

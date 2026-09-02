@@ -14,7 +14,7 @@ from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from backend.app.rag.citations import verify_citations, extract_citations, TEXTS
+from backend.app.core.citations import verify_citations, extract_citations, TEXTS
 
 art585 = TEXTS["民法典（合同编）"][585]
 art584 = TEXTS["民法典（合同编）"][584]

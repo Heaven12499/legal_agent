@@ -13,7 +13,7 @@ from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from backend.app.rag.citations import extract_citations, verify_citations, annotate
+from backend.app.core.citations import extract_citations, verify_citations, annotate
 
 CASES = [
     # (说明, 回答片段, 期望 invalid 数, 期望 total=去重后条数)
