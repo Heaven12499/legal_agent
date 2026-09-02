@@ -143,18 +143,21 @@ python -m pip install -r requirements.txt
 
 ```bash
 python --version                            # 应为 Python 3.12.x
-python scripts/download_model.py           # 拉 bge 模型到 models/
-python -m core.chunking                    # 生成 chunks.json（语料已入库可跳过）
+python -m backend.scripts.download_model   # 拉 bge 模型到 models/
+python -m backend.app.rag.chunking         # 生成 chunks.json（语料已入库可跳过）
 
 # 复制 .env.example 为 .env，填入 DEEPSEEK_API_KEY
-python cli.py "试用期一般多久"             # agent 端到端（CLI）
+python -m backend.app.cli "试用期一般多久" # agent 端到端（CLI）
 
 # ---- Web（前后端分离）----
-cd frontend && npm install && npm run dev   # 前端 5173，/api 代理到 8000
-python main.py                              # 后端 API 在 127.0.0.1:8000
+cd frontend
+npm install && npm run dev                  # 前端 5173，/api 代理到 8000
+# 另开终端并回到项目根目录：
+python -m backend.app.api                   # 后端 API 在 127.0.0.1:8000
 
 # 演示（单进程）：
-cd frontend && npm run build && python main.py   # → 开 http://127.0.0.1:8000
+cd frontend && npm run build
+cd .. && python -m backend.app.api          # → 开 http://127.0.0.1:8000
 
 # 首次启动会自动建初始用户（INIT_USERNAME/INIT_PASSWORD，未设则生成随机密码并打印），
 # 并把历史未归属会话迁移到其名下；也可直接在前端注册新账号。
@@ -196,7 +199,7 @@ fusion_score(i) = Σ_source 1 / (rrf_k + rank(source, i))   # 典型 rrf_k = 60
 
 ### Query Rewrite 与工具调用
 
-一个 while 循环（`agent/loop.py`），由同一 Agent 根据当前证据决定继续检索、精确查条文或生成回答。每一步显式、可打断、可打印 trace：
+一个 while 循环（`backend/app/agent/loop.py`），由同一 Agent 根据当前证据决定继续检索、精确查条文或生成回答。每一步显式、可打断、可打印 trace：
 **透明**（trace 记录每轮工具调用与查询改写过程）、**可控**（`max_rounds` 硬上限防无限检索）。
 
 ### Evidence Whitelist、Citation Verification 与 Limited Reflection
@@ -212,10 +215,10 @@ fusion_score(i) = Σ_source 1 / (rrf_k + rank(source, i))   # 典型 rrf_k = 60
 
 以下能力服务于可用性、可维护性和安全性，不改变上述核心 RAG 链路。
 
-- **长会话上下文管理**（`agent/context.py`）：多轮 history 超上限时，把最旧轮次压成一条
+- **长会话上下文管理**（`backend/app/agent/context.py`）：多轮 history 超上限时，把最旧轮次压成一条
   「对话摘要」（`MAX_HISTORY_MESSAGES`/`KEEP_RECENT_MESSAGES` env 可调），再接最近若干轮；
   待审查合同走独立注入，永不被裁剪。短会话零影响。
-- **工具注册表 + 结构化输出**（`agent/tools.py`）：工具做成 `TOOL_SCHEMAS`/`TOOL_EXECUTORS`
+- **工具注册表 + 结构化输出**（`backend/app/agent/tools.py`）：工具做成 `TOOL_SCHEMAS`/`TOOL_EXECUTORS`
   注册表，新增工具零改动 loop。第二个工具 `lookup_article` 按「法律名+条号」从语料精确查一条
   法条原文（数据真实不虚构），供反思阶段复核可疑引用，与 `check_faithfulness` 形成闭环。
 
@@ -240,7 +243,7 @@ fusion_score(i) = Σ_source 1 / (rrf_k + rank(source, i))   # 典型 rrf_k = 60
 - 《劳动法》《劳动合同法》《劳动合同法实施条例》；
 - 《社会保险法》《劳动争议调解仲裁法》。
 
-文本来源记录在各语料文件开头，主要来自国家法律法规数据库与中国人大网等公开官方渠道。语料文件和构建产物均保存在 `corpus/`，可通过 `python -m core.chunking` 重建索引。
+文本来源记录在各语料文件开头，主要来自国家法律法规数据库与中国人大网等公开官方渠道。语料文件和构建产物均保存在 `corpus/`，可通过 `python -m backend.app.rag.chunking` 重建索引。
 
 ### 已知限制
 
@@ -253,22 +256,18 @@ fusion_score(i) = Σ_source 1 / (rrf_k + rank(source, i))   # 典型 rrf_k = 60
 ## 8. 目录结构
 
 ```
+frontend/               # Vue 3 + Vite 前端
+backend/                 # Python 后端
+  app/
+    api.py               # FastAPI API + 演示模式 SPA 托管
+    cli.py               # CLI 入口，与 Web 共用 backend.app.agent.loop.run
+    agent/               # Query Rewrite、工具调用、LLM 循环与 Reflection
+    rag/                 # 检索、切分、向量化、RRF 与引用校验
+    infra/               # 鉴权与 SQLite 会话存储
+    services/            # 合同文件解析与 .docx 导出
+  scripts/               # 数据准备、验收与离线评测（见第 10 节）
 corpus/                 # 语料 + 派生索引（8 部官方原文，1023 条）
-core/                   # 检索与引用核心
-  chunking.py           # 一条法条 = 一个 chunk
-  embeddings.py         # bge-small-zh-v1.5 本地向量化（零网络依赖）
-  retriever.py          # FAISS 向量检索（IndexFlatIP）
-  bm25.py               # BM25 词法检索（jieba 分词）
-  hybrid.py             # 双路 RRF 融合
-  citations.py          # 引用校验：抽「《法》第X条」核对语料，反幻觉
-  fileparse.py          # 合同上传解析（.docx/.pdf/.txt → 纯文本）
-agent/                  # agent 循环（LLM = DeepSeek）
-  llm.py / tools.py / prompts.py / loop.py / session.py
 sample_contracts/       # 评测埋点合同（8 份、27 个风险点、19 条独立金标法条）
-scripts/                # 验收与评测脚本（见第 10 节）
-main.py                 # FastAPI 纯 API 后端（/api/* + CORS；演示模式托管前端 dist）
-cli.py                  # CLI 入口，与 web 共用 agent.loop.run
-frontend/               # Vue 3 + Vite 前端（前后端分离）
 data/                   # SQLite 会话库 sessions.db（gitignored）
 ```
 
@@ -290,12 +289,12 @@ data/                   # SQLite 会话库 sessions.db（gitignored）
 ## 10. 测试 / 验收
 
 ```bash
-python scripts/verify_retrieval.py         # 检索验收：13 个固定金标查询命中
-python scripts/verify_citations.py         # 引用 + 本轮证据白名单验收
-python scripts/verify_session_contract.py  # 普通追问保留合同、显式移除才清空
-python -X utf8 scripts/eval_review.py --dry # 只校验金标与测试集，不调用 LLM
-python -X utf8 scripts/eval_review.py      # 评测：确定性引用召回率（--runs 调重复次数）
-python -X utf8 scripts/eval_reflection.py  # 评测：引用反思触发、修复与残留情况
+python -m backend.scripts.verify_retrieval          # 检索验收：13 个固定金标查询命中
+python -m backend.scripts.verify_citations          # 引用 + 本轮证据白名单验收
+python -m backend.scripts.verify_session_contract   # 普通追问保留合同、显式移除才清空
+python -X utf8 -m backend.scripts.eval_review --dry # 只校验金标与测试集，不调用 LLM
+python -X utf8 -m backend.scripts.eval_review       # 评测：确定性引用召回率（--runs 调重复次数）
+python -X utf8 -m backend.scripts.eval_reflection   # 评测：引用反思触发、修复与残留情况
 ```
 
 前三项为确定性验收；两项 `eval_*` 评测调用 LLM，默认每份合同重复运行 3 次，并在启动时校验全部金标法条。评测集、指标口径和当前基线统一见第 3 节。
