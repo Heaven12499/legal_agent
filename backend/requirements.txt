@@ -1,5 +1,5 @@
 # ========== 法律 RAG 依赖清单 ==========
-# 安装：python -m pip install -r requirements.txt
+# 在项目根目录安装：python -m pip install -r backend/requirements.txt
 
 # ---- 向量化与精排（本地 bge 系列，无需 API key，可复现）----
 # embedding: BAAI/bge-small-zh-v1.5 ；rerank（P1）: BAAI/bge-reranker-base

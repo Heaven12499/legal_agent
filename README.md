@@ -134,9 +134,9 @@ conda create --prefix .\.venv python=3.12 pip -y
 conda activate .\.venv
 
 # 安装依赖（二选一）
-python -m pip install -r requirements.txt
+python -m pip install -r backend/requirements.txt
 # 国内网络较慢时改用：
-# python -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt
+# python -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r backend/requirements.txt
 ```
 
 确认当前解释器后再准备模型与索引：
