@@ -34,15 +34,18 @@ def _expand_neighbors(hits: list) -> list:
 
     只补同法、序数真实存在的条；不重复。返回主命中 + 邻居。"""
     idx = _neighbor_index()
-    by_id = {id(h): h for h in hits}
+    # chunks.json 的主命中和索引里的相邻条不是同一个 Python 对象，不能用 id() 去重；
+    # 否则主命中会被作为“邻居”重复拼入上下文，挤占真正的关联法条。
+    by_key = {(h["法律"], h["序数"]): h for h in hits}
     for h in hits:
         law, n = h["法律"], h["序数"]
         for d in range(1, NEIGHBOR_SPAN + 1):
             for nb in (n - d, n + d):
                 ch = idx.get(law, {}).get(nb)
-                if ch and id(ch) not in by_id:
-                    by_id[id(ch)] = ch
-    extra = [c for c in by_id.values() if not any(c is h for h in hits)]
+                if ch:
+                    by_key.setdefault((law, nb), ch)
+    primary_keys = {(h["法律"], h["序数"]) for h in hits}
+    extra = [c for key, c in by_key.items() if key not in primary_keys]
     return hits + sorted(extra, key=lambda c: (c["法律"], c["序数"]))
 
 RETRIEVE_TOOL = {

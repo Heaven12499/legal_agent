@@ -225,9 +225,10 @@ def correction_prompt(check: dict) -> str:
         parts.append(
             f"{len(check['ungrounded'])} 处法条虽存在，但并非本轮检索工具返回的证据：{ungrounded}"
         )
+    prefix = "你刚才的回答存在引用问题：" + "；".join(parts) + "。" if parts else "请保持现有引用真实可追溯。"
     return (
-        "你刚才的回答存在引用问题：" + "；".join(parts) + "。"
-        "请只使用本轮检索工具已经返回的真实条文重写相关引用；"
+        prefix
+        + "请只使用本轮检索工具已经返回的真实条文重写相关引用；"
         "找不到对应条文就如实说明「未检索到直接对应的条文」，不要凭记忆补充条号。"
         "只输出修正后的完整回答。"
     )

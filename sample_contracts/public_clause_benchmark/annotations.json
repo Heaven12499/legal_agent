@@ -1,0 +1,894 @@
+{
+  "version": "v0.2-provisional",
+  "label_definition": "重点核查需求，不是法律效力或责任的最终结论。",
+  "samples": [
+    {
+      "id": "01_database_maintenance_01_acceptance",
+      "text_file": "01_database_maintenance_01_acceptance.txt",
+      "contract_id": "01_database_maintenance",
+      "contract_type": "软件维保服务",
+      "ocr_review_required": true,
+      "split": "negative_manual_review",
+      "label": "no_obvious_risk_on_text",
+      "reason": "仅从脱敏条款文本未见可直接判定的风险，仍需人工结合合同全文、采购文件和履约事实复核。",
+      "gold_articles": []
+    },
+    {
+      "id": "01_database_maintenance_02_payment",
+      "text_file": "01_database_maintenance_02_payment.txt",
+      "contract_id": "01_database_maintenance",
+      "contract_type": "软件维保服务",
+      "ocr_review_required": true,
+      "split": "negative_manual_review",
+      "label": "no_obvious_risk_on_text",
+      "reason": "仅从脱敏条款文本未见可直接判定的风险，仍需人工结合合同全文、采购文件和履约事实复核。",
+      "gold_articles": []
+    },
+    {
+      "id": "01_database_maintenance_03_liability",
+      "text_file": "01_database_maintenance_03_liability.txt",
+      "contract_id": "01_database_maintenance",
+      "contract_type": "软件维保服务",
+      "ocr_review_required": true,
+      "split": "exclude",
+      "label": "exclude_parent_section_split_into_points",
+      "reason": "该长条款已拆为非重叠子条款评测点，避免与子条款重复计分。",
+      "gold_articles": []
+    },
+    {
+      "id": "02_unified_communications_01_acceptance",
+      "text_file": "02_unified_communications_01_acceptance.txt",
+      "contract_id": "02_unified_communications",
+      "contract_type": "信息技术服务",
+      "ocr_review_required": true,
+      "split": "exclude",
+      "label": "exclude_ocr_noise",
+      "reason": "条款主体或语义被 OCR 水印/缺字破坏，不能作为可信评测样本。",
+      "gold_articles": []
+    },
+    {
+      "id": "02_unified_communications_02_payment",
+      "text_file": "02_unified_communications_02_payment.txt",
+      "contract_id": "02_unified_communications",
+      "contract_type": "信息技术服务",
+      "ocr_review_required": true,
+      "split": "positive",
+      "label": "needs_fact_review_payment_exemption",
+      "reason": "付款迟延时免除一方违约责任的约定，需要结合付款条件、原因与适用采购规则核查。",
+      "gold_articles": [
+        [
+          "民法典（合同编）",
+          577
+        ],
+        [
+          "民法典（合同编）",
+          579
+        ]
+      ],
+      "query": "未支付价款 报酬 金钱债务 违约责任",
+      "agent_prompt": "请审查以下付款条款中“财政资金不到位或集中支付延误时不承担违约责任”的约定是否需要重点核查。不得直接认定无效；说明需要结合哪些事实判断，并检索法律依据。"
+    },
+    {
+      "id": "02_unified_communications_03_liability",
+      "text_file": "02_unified_communications_03_liability.txt",
+      "contract_id": "02_unified_communications",
+      "contract_type": "信息技术服务",
+      "ocr_review_required": true,
+      "split": "exclude",
+      "label": "exclude_ocr_noise",
+      "reason": "条款主体或语义被 OCR 水印/缺字破坏，不能作为可信评测样本。",
+      "gold_articles": []
+    },
+    {
+      "id": "03_middleware_maintenance_01_acceptance",
+      "text_file": "03_middleware_maintenance_01_acceptance.txt",
+      "contract_id": "03_middleware_maintenance",
+      "contract_type": "中间件维保服务",
+      "ocr_review_required": true,
+      "split": "negative_manual_review",
+      "label": "no_obvious_risk_on_text",
+      "reason": "仅从脱敏条款文本未见可直接判定的风险，仍需人工结合合同全文、采购文件和履约事实复核。",
+      "gold_articles": []
+    },
+    {
+      "id": "03_middleware_maintenance_02_payment",
+      "text_file": "03_middleware_maintenance_02_payment.txt",
+      "contract_id": "03_middleware_maintenance",
+      "contract_type": "中间件维保服务",
+      "ocr_review_required": true,
+      "split": "negative_manual_review",
+      "label": "no_obvious_risk_on_text",
+      "reason": "仅从脱敏条款文本未见可直接判定的风险，仍需人工结合合同全文、采购文件和履约事实复核。",
+      "gold_articles": []
+    },
+    {
+      "id": "03_middleware_maintenance_03_liability",
+      "text_file": "03_middleware_maintenance_03_liability.txt",
+      "contract_id": "03_middleware_maintenance",
+      "contract_type": "中间件维保服务",
+      "ocr_review_required": true,
+      "split": "exclude",
+      "label": "exclude_parent_section_split_into_points",
+      "reason": "该长条款已拆为非重叠子条款评测点，避免与子条款重复计分。",
+      "gold_articles": []
+    },
+    {
+      "id": "04_middleware_support_01_acceptance",
+      "text_file": "04_middleware_support_01_acceptance.txt",
+      "contract_id": "04_middleware_support",
+      "contract_type": "技术支持服务",
+      "ocr_review_required": true,
+      "split": "negative_manual_review",
+      "label": "no_obvious_risk_on_text",
+      "reason": "仅从脱敏条款文本未见可直接判定的风险，仍需人工结合合同全文、采购文件和履约事实复核。",
+      "gold_articles": []
+    },
+    {
+      "id": "04_middleware_support_02_payment",
+      "text_file": "04_middleware_support_02_payment.txt",
+      "contract_id": "04_middleware_support",
+      "contract_type": "技术支持服务",
+      "ocr_review_required": true,
+      "split": "positive",
+      "label": "needs_fact_review_payment_exemption",
+      "reason": "付款迟延时免除一方违约责任的约定，需要结合付款条件、原因与适用采购规则核查。",
+      "gold_articles": [
+        [
+          "民法典（合同编）",
+          577
+        ],
+        [
+          "民法典（合同编）",
+          579
+        ]
+      ],
+      "query": "未支付价款 报酬 金钱债务 违约责任",
+      "agent_prompt": "请审查以下付款条款中“财政资金不到位或集中支付延误时不承担违约责任”的约定是否需要重点核查。不得直接认定无效；说明需要结合哪些事实判断，并检索法律依据。"
+    },
+    {
+      "id": "04_middleware_support_03_liability",
+      "text_file": "04_middleware_support_03_liability.txt",
+      "contract_id": "04_middleware_support",
+      "contract_type": "技术支持服务",
+      "ocr_review_required": true,
+      "split": "exclude",
+      "label": "exclude_parent_section_split_into_points",
+      "reason": "该长条款已拆为非重叠子条款评测点，避免与子条款重复计分。",
+      "gold_articles": []
+    },
+    {
+      "id": "05_system_upgrade_01_acceptance",
+      "text_file": "05_system_upgrade_01_acceptance.txt",
+      "contract_id": "05_system_upgrade",
+      "contract_type": "信息系统升级服务",
+      "ocr_review_required": true,
+      "split": "negative_manual_review",
+      "label": "no_obvious_risk_on_text",
+      "reason": "仅从脱敏条款文本未见可直接判定的风险，仍需人工结合合同全文、采购文件和履约事实复核。",
+      "gold_articles": []
+    },
+    {
+      "id": "05_system_upgrade_02_payment",
+      "text_file": "05_system_upgrade_02_payment.txt",
+      "contract_id": "05_system_upgrade",
+      "contract_type": "信息系统升级服务",
+      "ocr_review_required": true,
+      "split": "positive",
+      "label": "needs_fact_review_payment_exemption",
+      "reason": "付款迟延时免除一方违约责任的约定，需要结合付款条件、原因与适用采购规则核查。",
+      "gold_articles": [
+        [
+          "民法典（合同编）",
+          577
+        ],
+        [
+          "民法典（合同编）",
+          579
+        ]
+      ],
+      "query": "未支付价款 报酬 金钱债务 违约责任",
+      "agent_prompt": "请审查以下付款条款中“财政资金不到位或集中支付延误时不承担违约责任”的约定是否需要重点核查。不得直接认定无效；说明需要结合哪些事实判断，并检索法律依据。"
+    },
+    {
+      "id": "05_system_upgrade_03_liability",
+      "text_file": "05_system_upgrade_03_liability.txt",
+      "contract_id": "05_system_upgrade",
+      "contract_type": "信息系统升级服务",
+      "ocr_review_required": true,
+      "split": "exclude",
+      "label": "exclude_parent_section_split_into_points",
+      "reason": "该长条款已拆为非重叠子条款评测点，避免与子条款重复计分。",
+      "gold_articles": []
+    },
+    {
+      "id": "06_system_optimization_01_acceptance",
+      "text_file": "06_system_optimization_01_acceptance.txt",
+      "contract_id": "06_system_optimization",
+      "contract_type": "软件开发服务",
+      "ocr_review_required": true,
+      "split": "negative_manual_review",
+      "label": "no_obvious_risk_on_text",
+      "reason": "仅从脱敏条款文本未见可直接判定的风险，仍需人工结合合同全文、采购文件和履约事实复核。",
+      "gold_articles": []
+    },
+    {
+      "id": "06_system_optimization_02_payment",
+      "text_file": "06_system_optimization_02_payment.txt",
+      "contract_id": "06_system_optimization",
+      "contract_type": "软件开发服务",
+      "ocr_review_required": true,
+      "split": "positive",
+      "label": "needs_fact_review_payment_exemption",
+      "reason": "付款迟延时免除一方违约责任的约定，需要结合付款条件、原因与适用采购规则核查。",
+      "gold_articles": [
+        [
+          "民法典（合同编）",
+          577
+        ],
+        [
+          "民法典（合同编）",
+          579
+        ]
+      ],
+      "query": "未支付价款 报酬 金钱债务 违约责任",
+      "agent_prompt": "请审查以下付款条款中“财政资金不到位或集中支付延误时不承担违约责任”的约定是否需要重点核查。不得直接认定无效；说明需要结合哪些事实判断，并检索法律依据。"
+    },
+    {
+      "id": "06_system_optimization_03_liability",
+      "text_file": "06_system_optimization_03_liability.txt",
+      "contract_id": "06_system_optimization",
+      "contract_type": "软件开发服务",
+      "ocr_review_required": true,
+      "split": "exclude",
+      "label": "exclude_parent_section_split_into_points",
+      "reason": "该长条款已拆为非重叠子条款评测点，避免与子条款重复计分。",
+      "gold_articles": []
+    },
+    {
+      "id": "07_terminal_procurement_01_acceptance",
+      "text_file": "07_terminal_procurement_01_acceptance.txt",
+      "contract_id": "07_terminal_procurement",
+      "contract_type": "IT 设备采购",
+      "ocr_review_required": true,
+      "split": "positive",
+      "label": "needs_fact_review_payment_exemption",
+      "reason": "付款迟延时免除一方违约责任的约定，需要结合付款条件、原因与适用采购规则核查。",
+      "gold_articles": [
+        [
+          "民法典（合同编）",
+          577
+        ],
+        [
+          "民法典（合同编）",
+          579
+        ]
+      ],
+      "query": "未支付价款 报酬 金钱债务 违约责任",
+      "agent_prompt": "请审查以下付款条款中“财政资金不到位或集中支付延误时不承担违约责任”的约定是否需要重点核查。不得直接认定无效；说明需要结合哪些事实判断，并检索法律依据。"
+    },
+    {
+      "id": "07_terminal_procurement_02_payment",
+      "text_file": "07_terminal_procurement_02_payment.txt",
+      "contract_id": "07_terminal_procurement",
+      "contract_type": "IT 设备采购",
+      "ocr_review_required": true,
+      "split": "negative_manual_review",
+      "label": "no_obvious_risk_on_text",
+      "reason": "仅从脱敏条款文本未见可直接判定的风险，仍需人工结合合同全文、采购文件和履约事实复核。",
+      "gold_articles": []
+    },
+    {
+      "id": "07_terminal_procurement_03_liability",
+      "text_file": "07_terminal_procurement_03_liability.txt",
+      "contract_id": "07_terminal_procurement",
+      "contract_type": "IT 设备采购",
+      "ocr_review_required": true,
+      "split": "exclude",
+      "label": "exclude_parent_section_split_into_points",
+      "reason": "该长条款已拆为非重叠子条款评测点，避免与子条款重复计分。",
+      "gold_articles": []
+    },
+    {
+      "id": "08_ntp_procurement_01_acceptance",
+      "text_file": "08_ntp_procurement_01_acceptance.txt",
+      "contract_id": "08_ntp_procurement",
+      "contract_type": "网络设备采购",
+      "ocr_review_required": true,
+      "split": "negative_manual_review",
+      "label": "no_obvious_risk_on_text",
+      "reason": "仅从脱敏条款文本未见可直接判定的风险，仍需人工结合合同全文、采购文件和履约事实复核。",
+      "gold_articles": []
+    },
+    {
+      "id": "08_ntp_procurement_02_payment",
+      "text_file": "08_ntp_procurement_02_payment.txt",
+      "contract_id": "08_ntp_procurement",
+      "contract_type": "网络设备采购",
+      "ocr_review_required": true,
+      "split": "negative_manual_review",
+      "label": "no_obvious_risk_on_text",
+      "reason": "仅从脱敏条款文本未见可直接判定的风险，仍需人工结合合同全文、采购文件和履约事实复核。",
+      "gold_articles": []
+    },
+    {
+      "id": "08_ntp_procurement_03_liability",
+      "text_file": "08_ntp_procurement_03_liability.txt",
+      "contract_id": "08_ntp_procurement",
+      "contract_type": "网络设备采购",
+      "ocr_review_required": true,
+      "split": "exclude",
+      "label": "exclude_parent_section_split_into_points",
+      "reason": "该长条款已拆为非重叠子条款评测点，避免与子条款重复计分。",
+      "gold_articles": []
+    },
+    {
+      "id": "09_facility_repair_01_acceptance",
+      "text_file": "09_facility_repair_01_acceptance.txt",
+      "contract_id": "09_facility_repair",
+      "contract_type": "维修工程",
+      "ocr_review_required": true,
+      "split": "negative_manual_review",
+      "label": "no_obvious_risk_on_text",
+      "reason": "仅从脱敏条款文本未见可直接判定的风险，仍需人工结合合同全文、采购文件和履约事实复核。",
+      "gold_articles": []
+    },
+    {
+      "id": "09_facility_repair_02_payment",
+      "text_file": "09_facility_repair_02_payment.txt",
+      "contract_id": "09_facility_repair",
+      "contract_type": "维修工程",
+      "ocr_review_required": true,
+      "split": "negative_manual_review",
+      "label": "no_obvious_risk_on_text",
+      "reason": "仅从脱敏条款文本未见可直接判定的风险，仍需人工结合合同全文、采购文件和履约事实复核。",
+      "gold_articles": []
+    },
+    {
+      "id": "09_facility_repair_03_liability",
+      "text_file": "09_facility_repair_03_liability.txt",
+      "contract_id": "09_facility_repair",
+      "contract_type": "维修工程",
+      "ocr_review_required": true,
+      "split": "exclude",
+      "label": "exclude_parent_section_split_into_points",
+      "reason": "该长条款已拆为非重叠子条款评测点，避免与子条款重复计分。",
+      "gold_articles": []
+    },
+    {
+      "id": "10_cost_consulting_01_保密",
+      "text_file": "10_cost_consulting_01_保密.txt",
+      "contract_id": "10_cost_consulting",
+      "contract_type": "工程造价咨询服务",
+      "ocr_review_required": true,
+      "split": "negative_manual_review",
+      "label": "no_obvious_risk_on_text",
+      "reason": "仅从脱敏条款文本未见可直接判定的风险，仍需人工结合合同全文、采购文件和履约事实复核。",
+      "gold_articles": []
+    },
+    {
+      "id": "01_database_maintenance_03_liability_p1",
+      "parent_sample_id": "01_database_maintenance_03_liability",
+      "text_file": "01_database_maintenance_03_liability.txt",
+      "contract_id": "01_database_maintenance",
+      "contract_type": "软件维保服务",
+      "ocr_review_required": true,
+      "clause_start": "1.甲、乙双方",
+      "clause_end": "2.乙方向甲方",
+      "split": "positive",
+      "label": "needs_fact_review_penalty",
+      "reason": "约定违约金、损失赔偿或解除后责任；是否过高需结合实际损失等事实判断。",
+      "gold_articles": [
+        [
+          "民法典（合同编）",
+          585
+        ]
+      ],
+      "query": "违约金 过分高于损失 调整",
+      "agent_prompt": "请审查以下合同条款中的违约金和违约责任是否需要重点核查。不得直接认定无效；说明需要结合哪些事实判断，并检索法律依据。"
+    },
+    {
+      "id": "01_database_maintenance_03_liability_p2",
+      "parent_sample_id": "01_database_maintenance_03_liability",
+      "text_file": "01_database_maintenance_03_liability.txt",
+      "contract_id": "01_database_maintenance",
+      "contract_type": "软件维保服务",
+      "ocr_review_required": true,
+      "clause_start": "2.乙方向甲方",
+      "clause_end": "3.乙方向甲方",
+      "split": "positive",
+      "label": "needs_fact_review_penalty",
+      "reason": "约定违约金、损失赔偿或解除后责任；是否过高需结合实际损失等事实判断。",
+      "gold_articles": [
+        [
+          "民法典（合同编）",
+          585
+        ]
+      ],
+      "query": "违约金 过分高于损失 调整",
+      "agent_prompt": "请审查以下合同条款中的违约金和违约责任是否需要重点核查。不得直接认定无效；说明需要结合哪些事实判断，并检索法律依据。"
+    },
+    {
+      "id": "01_database_maintenance_03_liability_p3",
+      "parent_sample_id": "01_database_maintenance_03_liability",
+      "text_file": "01_database_maintenance_03_liability.txt",
+      "contract_id": "01_database_maintenance",
+      "contract_type": "软件维保服务",
+      "ocr_review_required": true,
+      "clause_start": "3.乙方向甲方",
+      "clause_end": "4.如果发生",
+      "split": "positive",
+      "label": "needs_fact_review_penalty",
+      "reason": "约定违约金、损失赔偿或解除后责任；是否过高需结合实际损失等事实判断。",
+      "gold_articles": [
+        [
+          "民法典（合同编）",
+          585
+        ]
+      ],
+      "query": "违约金 过分高于损失 调整",
+      "agent_prompt": "请审查以下合同条款中的违约金和违约责任是否需要重点核查。不得直接认定无效；说明需要结合哪些事实判断，并检索法律依据。"
+    },
+    {
+      "id": "03_middleware_maintenance_03_liability_p1",
+      "parent_sample_id": "03_middleware_maintenance_03_liability",
+      "text_file": "03_middleware_maintenance_03_liability.txt",
+      "contract_id": "03_middleware_maintenance",
+      "contract_type": "中间件维保服务",
+      "ocr_review_required": true,
+      "clause_start": "1.甲、乙双方",
+      "clause_end": "2.乙方向甲方",
+      "split": "positive",
+      "label": "needs_fact_review_penalty",
+      "reason": "约定违约金、损失赔偿或解除后责任；是否过高需结合实际损失等事实判断。",
+      "gold_articles": [
+        [
+          "民法典（合同编）",
+          585
+        ]
+      ],
+      "query": "违约金 过分高于损失 调整",
+      "agent_prompt": "请审查以下合同条款中的违约金和违约责任是否需要重点核查。不得直接认定无效；说明需要结合哪些事实判断，并检索法律依据。"
+    },
+    {
+      "id": "03_middleware_maintenance_03_liability_p2",
+      "parent_sample_id": "03_middleware_maintenance_03_liability",
+      "text_file": "03_middleware_maintenance_03_liability.txt",
+      "contract_id": "03_middleware_maintenance",
+      "contract_type": "中间件维保服务",
+      "ocr_review_required": true,
+      "clause_start": "2.乙方向甲方",
+      "clause_end": "3.乙方向甲方",
+      "split": "positive",
+      "label": "needs_fact_review_penalty",
+      "reason": "约定违约金、损失赔偿或解除后责任；是否过高需结合实际损失等事实判断。",
+      "gold_articles": [
+        [
+          "民法典（合同编）",
+          585
+        ]
+      ],
+      "query": "违约金 过分高于损失 调整",
+      "agent_prompt": "请审查以下合同条款中的违约金和违约责任是否需要重点核查。不得直接认定无效；说明需要结合哪些事实判断，并检索法律依据。"
+    },
+    {
+      "id": "03_middleware_maintenance_03_liability_p3",
+      "parent_sample_id": "03_middleware_maintenance_03_liability",
+      "text_file": "03_middleware_maintenance_03_liability.txt",
+      "contract_id": "03_middleware_maintenance",
+      "contract_type": "中间件维保服务",
+      "ocr_review_required": true,
+      "clause_start": "3.乙方向甲方",
+      "clause_end": "4.如果发生",
+      "split": "positive",
+      "label": "needs_fact_review_penalty",
+      "reason": "约定违约金、损失赔偿或解除后责任；是否过高需结合实际损失等事实判断。",
+      "gold_articles": [
+        [
+          "民法典（合同编）",
+          585
+        ]
+      ],
+      "query": "违约金 过分高于损失 调整",
+      "agent_prompt": "请审查以下合同条款中的违约金和违约责任是否需要重点核查。不得直接认定无效；说明需要结合哪些事实判断，并检索法律依据。"
+    },
+    {
+      "id": "04_middleware_support_03_liability_p1",
+      "parent_sample_id": "04_middleware_support_03_liability",
+      "text_file": "04_middleware_support_03_liability.txt",
+      "contract_id": "04_middleware_support",
+      "contract_type": "技术支持服务",
+      "ocr_review_required": true,
+      "clause_start": "（一）",
+      "clause_end": "（二）",
+      "split": "positive",
+      "label": "needs_fact_review_penalty",
+      "reason": "约定违约金、损失赔偿或解除后责任；是否过高需结合实际损失等事实判断。",
+      "gold_articles": [
+        [
+          "民法典（合同编）",
+          585
+        ]
+      ],
+      "query": "违约金 过分高于损失 调整",
+      "agent_prompt": "请审查以下合同条款中的违约金和违约责任是否需要重点核查。不得直接认定无效；说明需要结合哪些事实判断，并检索法律依据。"
+    },
+    {
+      "id": "04_middleware_support_03_liability_p2",
+      "parent_sample_id": "04_middleware_support_03_liability",
+      "text_file": "04_middleware_support_03_liability.txt",
+      "contract_id": "04_middleware_support",
+      "contract_type": "技术支持服务",
+      "ocr_review_required": true,
+      "clause_start": "（二）",
+      "clause_end": "（三）",
+      "split": "positive",
+      "label": "needs_fact_review_penalty",
+      "reason": "约定违约金、损失赔偿或解除后责任；是否过高需结合实际损失等事实判断。",
+      "gold_articles": [
+        [
+          "民法典（合同编）",
+          585
+        ]
+      ],
+      "query": "违约金 过分高于损失 调整",
+      "agent_prompt": "请审查以下合同条款中的违约金和违约责任是否需要重点核查。不得直接认定无效；说明需要结合哪些事实判断，并检索法律依据。"
+    },
+    {
+      "id": "04_middleware_support_03_liability_p3",
+      "parent_sample_id": "04_middleware_support_03_liability",
+      "text_file": "04_middleware_support_03_liability.txt",
+      "contract_id": "04_middleware_support",
+      "contract_type": "技术支持服务",
+      "ocr_review_required": true,
+      "clause_start": "（三）",
+      "clause_end": "（四）",
+      "split": "positive",
+      "label": "needs_fact_review_penalty",
+      "reason": "约定违约金、损失赔偿或解除后责任；是否过高需结合实际损失等事实判断。",
+      "gold_articles": [
+        [
+          "民法典（合同编）",
+          585
+        ]
+      ],
+      "query": "违约金 过分高于损失 调整",
+      "agent_prompt": "请审查以下合同条款中的违约金和违约责任是否需要重点核查。不得直接认定无效；说明需要结合哪些事实判断，并检索法律依据。"
+    },
+    {
+      "id": "04_middleware_support_03_liability_p4",
+      "parent_sample_id": "04_middleware_support_03_liability",
+      "text_file": "04_middleware_support_03_liability.txt",
+      "contract_id": "04_middleware_support",
+      "contract_type": "技术支持服务",
+      "ocr_review_required": true,
+      "clause_start": "（四）",
+      "clause_end": null,
+      "split": "positive",
+      "label": "needs_fact_review_penalty",
+      "reason": "约定违约金、损失赔偿或解除后责任；是否过高需结合实际损失等事实判断。",
+      "gold_articles": [
+        [
+          "民法典（合同编）",
+          585
+        ]
+      ],
+      "query": "违约金 过分高于损失 调整",
+      "agent_prompt": "请审查以下合同条款中的违约金和违约责任是否需要重点核查。不得直接认定无效；说明需要结合哪些事实判断，并检索法律依据。"
+    },
+    {
+      "id": "05_system_upgrade_03_liability_p1",
+      "parent_sample_id": "05_system_upgrade_03_liability",
+      "text_file": "05_system_upgrade_03_liability.txt",
+      "contract_id": "05_system_upgrade",
+      "contract_type": "信息系统升级服务",
+      "ocr_review_required": true,
+      "clause_start": "（一）",
+      "clause_end": "（二）",
+      "split": "positive",
+      "label": "needs_fact_review_penalty",
+      "reason": "约定违约金、损失赔偿或解除后责任；是否过高需结合实际损失等事实判断。",
+      "gold_articles": [
+        [
+          "民法典（合同编）",
+          585
+        ]
+      ],
+      "query": "违约金 过分高于损失 调整",
+      "agent_prompt": "请审查以下合同条款中的违约金和违约责任是否需要重点核查。不得直接认定无效；说明需要结合哪些事实判断，并检索法律依据。"
+    },
+    {
+      "id": "05_system_upgrade_03_liability_p2",
+      "parent_sample_id": "05_system_upgrade_03_liability",
+      "text_file": "05_system_upgrade_03_liability.txt",
+      "contract_id": "05_system_upgrade",
+      "contract_type": "信息系统升级服务",
+      "ocr_review_required": true,
+      "clause_start": "（二）",
+      "clause_end": "（三）",
+      "split": "positive",
+      "label": "needs_fact_review_penalty",
+      "reason": "约定违约金、损失赔偿或解除后责任；是否过高需结合实际损失等事实判断。",
+      "gold_articles": [
+        [
+          "民法典（合同编）",
+          585
+        ]
+      ],
+      "query": "违约金 过分高于损失 调整",
+      "agent_prompt": "请审查以下合同条款中的违约金和违约责任是否需要重点核查。不得直接认定无效；说明需要结合哪些事实判断，并检索法律依据。"
+    },
+    {
+      "id": "05_system_upgrade_03_liability_p3",
+      "parent_sample_id": "05_system_upgrade_03_liability",
+      "text_file": "05_system_upgrade_03_liability.txt",
+      "contract_id": "05_system_upgrade",
+      "contract_type": "信息系统升级服务",
+      "ocr_review_required": true,
+      "clause_start": "（三）",
+      "clause_end": "（四）",
+      "split": "positive",
+      "label": "needs_fact_review_penalty",
+      "reason": "约定违约金、损失赔偿或解除后责任；是否过高需结合实际损失等事实判断。",
+      "gold_articles": [
+        [
+          "民法典（合同编）",
+          585
+        ]
+      ],
+      "query": "违约金 过分高于损失 调整",
+      "agent_prompt": "请审查以下合同条款中的违约金和违约责任是否需要重点核查。不得直接认定无效；说明需要结合哪些事实判断，并检索法律依据。"
+    },
+    {
+      "id": "05_system_upgrade_03_liability_p4",
+      "parent_sample_id": "05_system_upgrade_03_liability",
+      "text_file": "05_system_upgrade_03_liability.txt",
+      "contract_id": "05_system_upgrade",
+      "contract_type": "信息系统升级服务",
+      "ocr_review_required": true,
+      "clause_start": "（四）",
+      "clause_end": null,
+      "split": "positive",
+      "label": "needs_fact_review_penalty",
+      "reason": "约定违约金、损失赔偿或解除后责任；是否过高需结合实际损失等事实判断。",
+      "gold_articles": [
+        [
+          "民法典（合同编）",
+          585
+        ]
+      ],
+      "query": "违约金 过分高于损失 调整",
+      "agent_prompt": "请审查以下合同条款中的违约金和违约责任是否需要重点核查。不得直接认定无效；说明需要结合哪些事实判断，并检索法律依据。"
+    },
+    {
+      "id": "06_system_optimization_03_liability_p1",
+      "parent_sample_id": "06_system_optimization_03_liability",
+      "text_file": "06_system_optimization_03_liability.txt",
+      "contract_id": "06_system_optimization",
+      "contract_type": "软件开发服务",
+      "ocr_review_required": true,
+      "clause_start": "（一）",
+      "clause_end": "（二）",
+      "split": "positive",
+      "label": "needs_fact_review_penalty",
+      "reason": "约定违约金、损失赔偿或解除后责任；是否过高需结合实际损失等事实判断。",
+      "gold_articles": [
+        [
+          "民法典（合同编）",
+          585
+        ]
+      ],
+      "query": "违约金 过分高于损失 调整",
+      "agent_prompt": "请审查以下合同条款中的违约金和违约责任是否需要重点核查。不得直接认定无效；说明需要结合哪些事实判断，并检索法律依据。"
+    },
+    {
+      "id": "06_system_optimization_03_liability_p2",
+      "parent_sample_id": "06_system_optimization_03_liability",
+      "text_file": "06_system_optimization_03_liability.txt",
+      "contract_id": "06_system_optimization",
+      "contract_type": "软件开发服务",
+      "ocr_review_required": true,
+      "clause_start": "（二）",
+      "clause_end": "（三）",
+      "split": "positive",
+      "label": "needs_fact_review_penalty",
+      "reason": "约定违约金、损失赔偿或解除后责任；是否过高需结合实际损失等事实判断。",
+      "gold_articles": [
+        [
+          "民法典（合同编）",
+          585
+        ]
+      ],
+      "query": "违约金 过分高于损失 调整",
+      "agent_prompt": "请审查以下合同条款中的违约金和违约责任是否需要重点核查。不得直接认定无效；说明需要结合哪些事实判断，并检索法律依据。"
+    },
+    {
+      "id": "06_system_optimization_03_liability_p3",
+      "parent_sample_id": "06_system_optimization_03_liability",
+      "text_file": "06_system_optimization_03_liability.txt",
+      "contract_id": "06_system_optimization",
+      "contract_type": "软件开发服务",
+      "ocr_review_required": true,
+      "clause_start": "（三）",
+      "clause_end": "（四)",
+      "split": "positive",
+      "label": "needs_fact_review_penalty",
+      "reason": "约定违约金、损失赔偿或解除后责任；是否过高需结合实际损失等事实判断。",
+      "gold_articles": [
+        [
+          "民法典（合同编）",
+          585
+        ]
+      ],
+      "query": "违约金 过分高于损失 调整",
+      "agent_prompt": "请审查以下合同条款中的违约金和违约责任是否需要重点核查。不得直接认定无效；说明需要结合哪些事实判断，并检索法律依据。"
+    },
+    {
+      "id": "06_system_optimization_03_liability_p4",
+      "parent_sample_id": "06_system_optimization_03_liability",
+      "text_file": "06_system_optimization_03_liability.txt",
+      "contract_id": "06_system_optimization",
+      "contract_type": "软件开发服务",
+      "ocr_review_required": true,
+      "clause_start": "（四)",
+      "clause_end": null,
+      "split": "positive",
+      "label": "needs_fact_review_penalty",
+      "reason": "约定违约金、损失赔偿或解除后责任；是否过高需结合实际损失等事实判断。",
+      "gold_articles": [
+        [
+          "民法典（合同编）",
+          585
+        ]
+      ],
+      "query": "违约金 过分高于损失 调整",
+      "agent_prompt": "请审查以下合同条款中的违约金和违约责任是否需要重点核查。不得直接认定无效；说明需要结合哪些事实判断，并检索法律依据。"
+    },
+    {
+      "id": "07_terminal_procurement_03_liability_p1",
+      "parent_sample_id": "07_terminal_procurement_03_liability",
+      "text_file": "07_terminal_procurement_03_liability.txt",
+      "contract_id": "07_terminal_procurement",
+      "contract_type": "IT 设备采购",
+      "ocr_review_required": true,
+      "clause_start": "1.甲乙双方",
+      "clause_end": "2.本合同",
+      "split": "positive",
+      "label": "needs_fact_review_penalty",
+      "reason": "约定违约金、损失赔偿或解除后责任；是否过高需结合实际损失等事实判断。",
+      "gold_articles": [
+        [
+          "民法典（合同编）",
+          585
+        ]
+      ],
+      "query": "违约金 过分高于损失 调整",
+      "agent_prompt": "请审查以下合同条款中的违约金和违约责任是否需要重点核查。不得直接认定无效；说明需要结合哪些事实判断，并检索法律依据。"
+    },
+    {
+      "id": "08_ntp_procurement_03_liability_p1",
+      "parent_sample_id": "08_ntp_procurement_03_liability",
+      "text_file": "08_ntp_procurement_03_liability.txt",
+      "contract_id": "08_ntp_procurement",
+      "contract_type": "网络设备采购",
+      "ocr_review_required": true,
+      "clause_start": "1.甲乙双方",
+      "clause_end": null,
+      "split": "positive",
+      "label": "needs_fact_review_penalty",
+      "reason": "约定违约金、损失赔偿或解除后责任；是否过高需结合实际损失等事实判断。",
+      "gold_articles": [
+        [
+          "民法典（合同编）",
+          585
+        ]
+      ],
+      "query": "违约金 过分高于损失 调整",
+      "agent_prompt": "请审查以下合同条款中的违约金和违约责任是否需要重点核查。不得直接认定无效；说明需要结合哪些事实判断，并检索法律依据。"
+    },
+    {
+      "id": "09_facility_repair_03_liability_p2",
+      "parent_sample_id": "09_facility_repair_03_liability",
+      "text_file": "09_facility_repair_03_liability.txt",
+      "contract_id": "09_facility_repair",
+      "contract_type": "维修工程",
+      "ocr_review_required": true,
+      "clause_start": "2、乙方擅自转让",
+      "clause_end": "3、乙方擅自解除",
+      "split": "positive",
+      "label": "needs_fact_review_penalty",
+      "reason": "约定违约金、损失赔偿或解除后责任；是否过高需结合实际损失等事实判断。",
+      "gold_articles": [
+        [
+          "民法典（合同编）",
+          585
+        ]
+      ],
+      "query": "违约金 过分高于损失 调整",
+      "agent_prompt": "请审查以下合同条款中的违约金和违约责任是否需要重点核查。不得直接认定无效；说明需要结合哪些事实判断，并检索法律依据。"
+    },
+    {
+      "id": "09_facility_repair_03_liability_p3",
+      "parent_sample_id": "09_facility_repair_03_liability",
+      "text_file": "09_facility_repair_03_liability.txt",
+      "contract_id": "09_facility_repair",
+      "contract_type": "维修工程",
+      "ocr_review_required": true,
+      "clause_start": "3、乙方擅自解除",
+      "clause_end": "4、乙方未按期限",
+      "split": "positive",
+      "label": "needs_fact_review_penalty",
+      "reason": "约定违约金、损失赔偿或解除后责任；是否过高需结合实际损失等事实判断。",
+      "gold_articles": [
+        [
+          "民法典（合同编）",
+          585
+        ]
+      ],
+      "query": "违约金 过分高于损失 调整",
+      "agent_prompt": "请审查以下合同条款中的违约金和违约责任是否需要重点核查。不得直接认定无效；说明需要结合哪些事实判断，并检索法律依据。"
+    },
+    {
+      "id": "09_facility_repair_03_liability_p4",
+      "parent_sample_id": "09_facility_repair_03_liability",
+      "text_file": "09_facility_repair_03_liability.txt",
+      "contract_id": "09_facility_repair",
+      "contract_type": "维修工程",
+      "ocr_review_required": true,
+      "clause_start": "4、乙方未按期限",
+      "clause_end": "5、乙方提交",
+      "split": "positive",
+      "label": "needs_fact_review_penalty",
+      "reason": "约定违约金、损失赔偿或解除后责任；是否过高需结合实际损失等事实判断。",
+      "gold_articles": [
+        [
+          "民法典（合同编）",
+          585
+        ]
+      ],
+      "query": "违约金 过分高于损失 调整",
+      "agent_prompt": "请审查以下合同条款中的违约金和违约责任是否需要重点核查。不得直接认定无效；说明需要结合哪些事实判断，并检索法律依据。"
+    },
+    {
+      "id": "09_facility_repair_03_liability_p6",
+      "parent_sample_id": "09_facility_repair_03_liability",
+      "text_file": "09_facility_repair_03_liability.txt",
+      "contract_id": "09_facility_repair",
+      "contract_type": "维修工程",
+      "ocr_review_required": true,
+      "clause_start": "6、乙方提供的成果",
+      "clause_end": "7、乙方未按本合同",
+      "split": "positive",
+      "label": "needs_fact_review_penalty",
+      "reason": "约定违约金、损失赔偿或解除后责任；是否过高需结合实际损失等事实判断。",
+      "gold_articles": [
+        [
+          "民法典（合同编）",
+          585
+        ]
+      ],
+      "query": "违约金 过分高于损失 调整",
+      "agent_prompt": "请审查以下合同条款中的违约金和违约责任是否需要重点核查。不得直接认定无效；说明需要结合哪些事实判断，并检索法律依据。"
+    },
+    {
+      "id": "09_facility_repair_03_liability_p7",
+      "parent_sample_id": "09_facility_repair_03_liability",
+      "text_file": "09_facility_repair_03_liability.txt",
+      "contract_id": "09_facility_repair",
+      "contract_type": "维修工程",
+      "ocr_review_required": true,
+      "clause_start": "7、乙方未按本合同",
+      "clause_end": "8、乙方及乙方工作人员",
+      "split": "positive",
+      "label": "needs_fact_review_penalty",
+      "reason": "约定违约金、损失赔偿或解除后责任；是否过高需结合实际损失等事实判断。",
+      "gold_articles": [
+        [
+          "民法典（合同编）",
+          585
+        ]
+      ],
+      "query": "违约金 过分高于损失 调整",
+      "agent_prompt": "请审查以下合同条款中的违约金和违约责任是否需要重点核查。不得直接认定无效；说明需要结合哪些事实判断，并检索法律依据。"
+    }
+  ]
+}

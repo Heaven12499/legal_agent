@@ -6,12 +6,76 @@ import os
 
 from .llm import chat
 from .prompts import SYSTEM_PROMPT
-from .tools import TOOL_SCHEMAS, TOOL_EXECUTORS
+from .tools import TOOL_SCHEMAS, TOOL_EXECUTORS, retrieve
 from ..core.citations import verify_citations, correction_prompt, annotate
 
 # 反思循环上限：verify→feedback→rewrite→re-verify 至多 N 轮（env 可调）。
 # 与 max_rounds（检索轮预算）分开，反思不挤占检索轮。
 REFLECT_MAX_ROUNDS = int(os.environ.get("REFLECT_MAX_ROUNDS", "2"))
+
+# 只做“识别到特定文字信号后补充检索”，不预先断言条款无效，也不把法条直接塞进答案。
+# 这些规则的作用是让 Agent 在常见但易漏的合同语言下看到应当比较的法律证据。
+_COVERAGE_RULES = (
+    {
+        "name": "付款迟延免责",
+        "signals": ("财政资金", "资金不到位", "集中支付", "付款延误", "支付延误"),
+        "must_also_contain": ("不承担违约责任", "不承担责任", "免责"),
+        "query": "未支付价款 报酬 金钱债务 违约责任",
+        "expected_any": {("民法典（合同编）", 577), ("民法典（合同编）", 579)},
+    },
+    {
+        "name": "违约金约定",
+        "signals": ("违约金",),
+        "must_also_contain": (),
+        "query": "违约金 过分高于损失 调整",
+        "expected_any": {("民法典（合同编）", 585)},
+    },
+)
+
+
+def _source_text(query: str, history: list | None) -> str:
+    """取得本轮待审文本，仅用于触发补充检索，不把历史 assistant 输出当作合同事实。"""
+    parts = [query]
+    for item in history or []:
+        if item.get("role") == "user" and isinstance(item.get("content"), str):
+            parts.append(item["content"])
+    return "\n".join(parts)
+
+
+def _coverage_rules(query: str, history: list | None) -> list[dict]:
+    text = _source_text(query, history)
+    matched = []
+    for rule in _COVERAGE_RULES:
+        if not any(word in text for word in rule["signals"]):
+            continue
+        required = rule["must_also_contain"]
+        if required and not any(word in text for word in required):
+            continue
+        matched.append(rule)
+    return matched
+
+
+def _missing_coverage(answer: str, rules: list[dict], allowed: set[tuple[str, int]]) -> list[dict]:
+    """找出已检索到对应依据、但最终答案仍未引用的重点核查类型。"""
+    cited = {(c["law"], c["num"]) for c in verify_citations(answer, allowed)["valid"]}
+    missing = []
+    for rule in rules:
+        candidates = rule["expected_any"] & allowed
+        if candidates and not (cited & candidates):
+            missing.append({**rule, "candidates": sorted(candidates)})
+    return missing
+
+
+def _coverage_prompt(missing: list[dict]) -> str:
+    descriptions = []
+    for rule in missing:
+        laws = "、".join(f"《{law}》第{num}条" for law, num in rule["candidates"])
+        descriptions.append(f"“{rule['name']}”情形尚未引用已检索到的重点依据（{laws}）")
+    return (
+        "另有证据覆盖缺口：" + "；".join(descriptions) + "。"
+        "请结合条款事实说明这些依据是否适用；适用时补充引用，不适用时说明理由。"
+        "不得把条款直接判定为无效。"
+    )
 
 
 def _dispatch(name: str, args: dict) -> dict:
@@ -57,7 +121,7 @@ def _parse_reflection(content: str, fallback: str) -> tuple:
     return (s, True) if s else (fallback, False)
 
 
-def _reflect(messages: list, answer: str, allowed: set[tuple[str, int]]) -> tuple:
+def _reflect(messages: list, answer: str, allowed: set[tuple[str, int]], coverage_rules: list[dict]) -> tuple:
     """有界反思循环：对不存在或未从本轮证据取得的引用触发校验→反馈→重写→再校验，
     至多 REFLECT_MAX_ROUNDS 轮。
 
@@ -71,10 +135,12 @@ def _reflect(messages: list, answer: str, allowed: set[tuple[str, int]]) -> tupl
     initial_invalid = len(check["invalid"])
     initial_ungrounded = len(check["ungrounded"])
     initial_suspect = len(check.get("suspect", []))
+    initial_coverage_missing = _missing_coverage(answer, coverage_rules, allowed)
     reflections = []
     replaced_any = False
     for k in range(1, REFLECT_MAX_ROUNDS + 1):
-        if not check["invalid"] and not check["ungrounded"]:
+        coverage_missing = _missing_coverage(answer, coverage_rules, allowed)
+        if not check["invalid"] and not check["ungrounded"] and not coverage_missing:
             break
         # DeepSeek/OpenAI 的 json_object 模式要求 prompt 里含 "json" 字样，否则不启用。
         # 显式引导 JSON 结构（含 "JSON"），correction_prompt 核心纠错文本不动。
@@ -84,7 +150,9 @@ def _reflect(messages: list, answer: str, allowed: set[tuple[str, int]]) -> tupl
         )
         try:
             resp = chat(
-                messages + [{"role": "user", "content": correction_prompt(check) + "\n\n" + json_hint}],
+                messages + [{"role": "user", "content": (
+                    correction_prompt(check) + "\n\n" + _coverage_prompt(coverage_missing) + "\n\n" + json_hint
+                )}],
                 response_format={"type": "json_object"},
             )
             new_answer, replaced = _parse_reflection(
@@ -110,6 +178,8 @@ def _reflect(messages: list, answer: str, allowed: set[tuple[str, int]]) -> tupl
         "final_ungrounded": len(check["ungrounded"]),
         "initial_suspect": initial_suspect,  # suspect 仅记录/如实标注
         "final_suspect": len(check.get("suspect", [])),
+        "initial_coverage_missing": len(initial_coverage_missing),
+        "final_coverage_missing": len(_missing_coverage(answer, coverage_rules, allowed)),
         "replaced": replaced_any,
     }
     return annotate(answer, check), check, reflections, stats
@@ -129,6 +199,23 @@ def run(query: str, history: list | None = None, max_rounds: int = 10) -> dict:
     messages.append({"role": "user", "content": query})
     trace = []
     allowed_evidence: set[tuple[str, int]] = set()
+    coverage_rules = _coverage_rules(query, history)
+
+    # 在模型自由检索前补充易漏风险类型的法律术语检索。预取结果仍作为本轮可追溯证据，
+    # 模型可选择其是否适用；最终覆盖检查只要求解释已被预取到的候选依据。
+    for rule in coverage_rules:
+        result = retrieve(rule["query"])
+        for evidence in result.get("evidence", []):
+            allowed_evidence.add((evidence["law"], evidence["num"]))
+        messages.append({
+            "role": "user",
+            "content": (
+                f"系统为“{rule['name']}”预取了候选法律依据。请结合条款事实判断是否适用，"
+                f"不要仅因出现该词语直接作出无效结论：\n\n{result['text']}"
+            ),
+        })
+        trace.append({"round": 0, "tool": "coverage_prefetch", "query": rule["query"],
+                      "hits": result["labels"], "evidence": result.get("evidence", [])})
 
     for rnd in range(1, max_rounds + 1):
         # 第一轮强制检索，避免模型直接按参数记忆作答；后续由模型自行决定是否继续检索。
@@ -146,7 +233,7 @@ def run(query: str, history: list | None = None, max_rounds: int = 10) -> dict:
         # 无工具调用 => 信息已够，直接给答案（M6 反思：校验→必要时重写→脚注）
         if not msg.tool_calls:
             answer, check, reflections, stats = _reflect(
-                messages, msg.content or "", allowed_evidence
+                messages, msg.content or "", allowed_evidence, coverage_rules
             )
             return {
                 "answer": answer, "rounds": rnd, "trace": trace,
