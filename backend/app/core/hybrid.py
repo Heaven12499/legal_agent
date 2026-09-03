@@ -3,11 +3,15 @@
 向量 + BM25 双路检索，RRF（Reciprocal Rank Fusion）融合取 top-k。
 RRF 只看排名不看分数，规避两路分数量纲不可比的问题（原理见 README 设计决策）。
 """
+import logging
+
 from .bm25 import get_bm25
 from .retriever import get_retriever
 from .rerank import enabled
 
 _instance = None
+_log = logging.getLogger(__name__)
+_rerank_fallback_warned = False
 
 
 class HybridRetriever:
@@ -38,14 +42,18 @@ class HybridRetriever:
 
         # 按融合分降序先取 top-n 候选（比 k 大，供精排/回退有得选）
         ranked = sorted(fused, key=fused.get, reverse=True)
-        # 可选精排（RERANK=1）：对 top-n 用 bge-reranker 打分取 top-k；模型不可用则回退 RRF
+        # 可选精排（RERANK=1）：对 top-n 用 bge-reranker 打分取 top-k；模型不可用则明确告警后回退 RRF。
         if enabled():
             try:
                 from .rerank import rerank
 
                 top_n = [self.vector.chunks[i] for i in ranked[:n]]
                 return rerank(query, top_n, k)
-            except Exception:  # noqa: BLE001 —— 模型缺失/加载失败，静默回退
+            except Exception as exc:  # noqa: BLE001 —— 模型缺失/加载失败，保服务可用性
+                global _rerank_fallback_warned
+                if not _rerank_fallback_warned:
+                    _log.warning("reranker 不可用，已回退至 RRF：%s", exc)
+                    _rerank_fallback_warned = True
                 pass
         return [
             {

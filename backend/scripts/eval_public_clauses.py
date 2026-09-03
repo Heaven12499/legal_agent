@@ -45,9 +45,13 @@ def retrieval_eval(samples: list[dict], k: int) -> list[dict]:
         hits = retriever.search(item["query"], k)
         found = {(h["法律"], h["序数"]) for h in hits}
         gold = {tuple(x) for x in item["gold_articles"]}
+        ranks = [rank for rank, hit in enumerate(hits, start=1)
+                 if (hit["法律"], hit["序数"]) in gold]
+        first_gold_rank = min(ranks) if ranks else None
         rows.append({
             "id": item["id"], "label": item["label"], "hit": bool(found & gold),
             "gold": sorted(gold), "retrieved": sorted(found),
+            "first_gold_rank": first_gold_rank,
         })
     return rows
 
@@ -78,12 +82,17 @@ def agent_eval(samples: list[dict]) -> list[dict]:
 
 
 def summarize(rows: list[dict]) -> dict:
-    return {
+    summary = {
         "evaluated": len(rows),
         # 这里只测“金标法条是否被引用/检索到”，不是端到端风险识别召回率。
         "gold_article_hit_rate": sum(row["hit"] for row in rows) / len(rows) if rows else 0.0,
         "hits": sum(row["hit"] for row in rows),
     }
+    if rows and "first_gold_rank" in rows[0]:
+        ranks = [row["first_gold_rank"] for row in rows]
+        # 单金标/多金标都取首个金标的倒数排名，衡量精排是否把关键条推到前面。
+        summary["mrr"] = sum(1 / rank if rank else 0 for rank in ranks) / len(rows)
+    return summary
 
 
 def main() -> None:

@@ -214,9 +214,9 @@ RRF 只依赖排名不依赖分数（两路分数量纲不同不可比），一�
 fusion_score(i) = Σ_source 1 / (rrf_k + rank(source, i))   # 典型 rrf_k = 60
 ```
 
-**两条可选增强**（都不改动默认行为）：
+**检索增强**：
 - **相邻法条上下文扩展**（默认开启）：命中一条后把同法相邻条（序数 ±1）也拼进给 LLM 的上下文——法律条文高度关联（如 585 违约金常要和 584/586 配套引用），单条 chunk 里 LLM 看不到邻居。主命中 labels/trace 不受影响。
-- **reranker 精排**（P1，默认关闭）：设置 `RERANK=1` 且安装 `BAAI/bge-reranker-base` 后，对 RRF 融合的 top-20 用 bge-reranker 打分取 top-5；模型不可用则静默回退 RRF。
+- **reranker 精排**（可开关增强）：设置 `RERANK=1` 后，对 RRF 融合的 top-20 用本地 `BAAI/bge-reranker-base` Cross-Encoder 打分取 top-5。模型不可用时会回退；启动脚本会显式下载模型，查询过程不隐式联网。当前公开条款集 A/B 的 Recall@5 与 MRR 均未提升，故默认保持 RRF，等待更具区分度的数据集或 GPU 延迟对比后再决定是否常驻开启。
 
 ### Query Rewrite 与工具调用
 

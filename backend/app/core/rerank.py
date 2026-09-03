@@ -1,27 +1,33 @@
 # -*- coding: utf-8 -*-
-"""可选精排（P1）：bge-reranker-base 对双路 RRF 融合后的 top-N 再打分、取 top-k。
+"""二阶段精排：bge-reranker-base 对双路 RRF 融合后的 top-N 再打分、取 top-k。
 
-默认关闭——加载 CrossEncoder 较慢且多占显存/内存，且依赖已下载的模型。
-设置环境变量 RERANK=1 启用；模型不可用（未下载/import 失败）时上层静默回退到 RRF。
+默认关闭。设置 RERANK=1 启用；模型不可用时由上层回退。
+模型只从本地 models/ 加载，下载由 bootstrap 显式完成，避免线上查询隐式联网。
 """
 import os
+from pathlib import Path
 
-RERANK_MODEL_NAME = "BAAI/bge-reranker-base"
+MODEL_DIR = Path(__file__).resolve().parents[3] / "models" / "bge-reranker-base"
 _reranker = None
 
 
 def enabled() -> bool:
-    """是否启用精排：只看 RERANK 环境变量是否 == '1'。"""
+    """是否启用精排：RERANK=1 显式开启。"""
     return os.environ.get("RERANK") == "1"
 
 
 def get_reranker():
-    """懒加载 CrossEncoder。import 失败会抛给上层，由上层捕获后回退。"""
+    """从本地加载 CrossEncoder。失败抛给上层，由上层回退。"""
     global _reranker
     if _reranker is None:
+        if not MODEL_DIR.exists():
+            raise FileNotFoundError(
+                f"未找到本地 reranker 模型：{MODEL_DIR}；"
+                "请运行 python -m backend.scripts.download_model"
+            )
         from sentence_transformers import CrossEncoder
 
-        _reranker = CrossEncoder(RERANK_MODEL_NAME)
+        _reranker = CrossEncoder(str(MODEL_DIR))
     return _reranker
 
 
