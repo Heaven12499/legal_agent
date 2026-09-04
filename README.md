@@ -6,7 +6,7 @@
 
 合同初审的实际难点不是“能否生成一段回答”，而是能否把合同中的具体条款稳定地映射到可核验的法律依据。为此，系统使用查询改写、向量 + BM25 混合检索、相邻法条扩展和引用校验，解决术语表达差异、关联法条遗漏与法条引用不可追溯的问题。
 
-> **核心链路**：合同条款 → Query Rewrite → Hybrid Retrieval（Vector + BM25 + RRF）→ Evidence Whitelist → Citation Verification → Limited Reflection → Offline Eval
+> **核心链路**：问题分类 → 法律问题走 Query Rewrite + Hybrid Retrieval（Vector + BM25 + RRF）→ Evidence Whitelist → Citation Verification → Limited Reflection；非法律信息问题直接回答
 >
 > **当前评测分层**：8 份 AI 合成埋点合同只用于内部回归测试；10 份公开合同裁出的 28 条短条款、30 个重点核查点用于主评测。两类数据集的结果分开报告，不能将合成数据得分视为真实合同效果。完整口径见[评测结果](#3-评测结果)。
 
@@ -18,7 +18,7 @@
 
 - **合同条款核查**：从合同中定位违约金、格式条款、竞业限制等待核查条款，逐项检索并展示相关法条原文。
 - **法律问答**：针对劳动、合同、买卖等法律问题提问，基于检索到的官方法条回答。
-- **证据白名单 + 引用校验**：首轮强制检索，最终答案中的每处「《法律名》第X条」不仅核对是否存在于语料，还必须来自本轮 retrieve / lookup_article 的证据集合；未通过时触发有限纠错，仍无法核实则明确标记，不静默放行。校验同时兼容「民法典585条」等紧凑写法，并对条号真实但复述内容可能偏离原文的情况给出人工核对提示。
+- **按需检索 + 证据白名单**：Agent 首先判断当前问题是否需要法律依据；实体法律问题必须检索，寒暄、功能说明及不涉及法律判断的纯文本任务可直接回答。最终答案中的每处「《法律名》第X条」不仅核对是否存在于语料，还必须来自本轮 retrieve / lookup_article 的证据集合；未通过时触发有限纠错，仍无法核实则明确标记，不静默放行。
 - **可复现回归评测**：以带金标法条的埋点合同测引用召回率；金标校验、引用抽取和指标计算均为确定性，端到端结果通过多轮运行汇总，降低 LLM 采样波动的影响。
 - **多轮对话 + 会话持久化**：前端可复制 / 修改 / 重新生成消息，SQLite 落盘会话历史，重启不丢。
 - **多用户登录与会话隔离**：用户名+密码（argon2 哈希）+ JWT 登录；会话按用户隔离互不可见，跨用户读不到、改不到、删不到他人合同。开放注册 + 初始用户，历史匿名会话启动时自动迁移到初始用户名下。
@@ -30,7 +30,7 @@
 系统解决的是法务初审中的“从合同条款快速定位到可信法律依据”，而非自动决策或代替法务。处理链路如下：
 
 ```text
-在线审查：合同条款 / 法律问题 → Query Rewrite → Hybrid Retrieval → Evidence Whitelist → Citation Verification → Limited Reflection → 人工参考结论
+在线问答：合同条款 / 用户问题 → Retrieval Routing → 法律问题走 Query Rewrite + Hybrid Retrieval → Evidence Whitelist → Citation Verification → Limited Reflection → 人工参考结论；非法律信息问题直接回答
 离线验证：AI 合成埋点合同（回归）+ 公开脱敏短条款（外部验证）→ Eval（检索、引用与纠错指标）
 ```
 
@@ -191,7 +191,8 @@ cd .. && python -m backend.app.api.main     # → 开 http://127.0.0.1:8000
 ### 核心链路（优先阅读）
 
 ```text
-合同条款
+合同条款 / 用户问题
+  → Retrieval Routing（实体法律问题必须检索，非法律信息问题可直答）
   → Query Rewrite
   → Hybrid Retrieval（Vector + BM25 + RRF）
   → 相邻法条扩展
@@ -220,7 +221,7 @@ fusion_score(i) = Σ_source 1 / (rrf_k + rank(source, i))   # 典型 rrf_k = 60
 
 ### Query Rewrite 与工具调用
 
-一个 while 循环（`backend/app/agent/loop.py`），由同一 Agent 根据当前证据决定继续检索、精确查条文或生成回答。每一步显式、可打断、可打印 trace：
+一个 while 循环（`backend/app/agent/loop.py`），由同一 Agent 先判断当前问题是否需要法律依据，再决定检索、精确查条文或直接生成回答。合同审查和实体法律问答必须先检索；寒暄、功能说明、澄清及不涉及法律判断的纯文本任务可免检索。每一步显式、可打断、可打印 trace：
 **透明**（trace 记录每轮工具调用与查询改写过程）、**可控**（`max_rounds` 硬上限防无限检索）。
 
 ### Evidence Whitelist、Citation Verification 与 Limited Reflection

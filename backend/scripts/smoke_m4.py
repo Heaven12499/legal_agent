@@ -27,8 +27,10 @@ class FakeCompletions:
     def __init__(self, script):
         self.script = script  # [("tool", query), ("answer", text), ...]
         self.i = 0
+        self.calls = []
 
     def create(self, **kw):
+        self.calls.append(kw)
         step = self.script[self.i]
         self.i += 1
         if step[0] == "tool":
@@ -66,6 +68,7 @@ def install_fake_client(script):
         def __init__(self):
             self.chat = FakeChat(FakeCompletions(script))
     llm._instance = FakeClient()
+    return llm._instance.chat.completions
 
 
 def test_run_history():
@@ -108,8 +111,21 @@ def test_loop_with_tool():
     print("[OK] 循环机制正常：1 轮检索 + trace 记录")
 
 
+def test_direct_answer_without_retrieval():
+    """即使历史合同含风险词，当前非法律信息问题也不触发检索。"""
+    fake = install_fake_client([("answer", "你好，我可以协助审查合同和查询法律依据。")])
+    history = [{"role": "user", "content": "合同约定逾期支付每日承担违约金。"}]
+    result = run("你好，你能做什么？", history=history)
+    assert result["rounds"] == 1, result
+    assert result["trace"] == [], result["trace"]
+    assert "你好" in result["answer"], result["answer"]
+    assert fake.calls[0]["tool_choice"] == "auto", fake.calls[0]
+    print("[OK] 检索路由：历史含风险词时，当前非法律信息问题仍直接回答")
+
+
 if __name__ == "__main__":
     test_session_roundtrip()
+    test_direct_answer_without_retrieval()
     test_loop_with_tool()
     test_run_history()
     print("\n全部通过")

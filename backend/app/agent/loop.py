@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-"""手写 while 循环实现 OpenAI function calling 多轮检索：调 LLM → 有工具调用就执行
-retrieve 并回填 → 直到直接给答案。trace 记录每轮 query 与命中供前端展示。"""
+"""手写 while 循环实现 OpenAI function calling 多轮检索：先由 LLM 判断是否需要检索，
+有工具调用就执行并回填，否则直接回答。trace 记录每轮 query 与命中供前端展示。"""
 import json
 import os
 
@@ -200,33 +200,15 @@ def run(query: str, history: list | None = None, max_rounds: int = 10) -> dict:
     trace = []
     allowed_evidence: set[tuple[str, int]] = set()
     coverage_rules = _coverage_rules(query, history)
-
-    # 在模型自由检索前补充易漏风险类型的法律术语检索。预取结果仍作为本轮可追溯证据，
-    # 模型可选择其是否适用；最终覆盖检查只要求解释已被预取到的候选依据。
-    for rule in coverage_rules:
-        result = retrieve(rule["query"])
-        for evidence in result.get("evidence", []):
-            allowed_evidence.add((evidence["law"], evidence["num"]))
-        messages.append({
-            "role": "user",
-            "content": (
-                f"系统为“{rule['name']}”预取了候选法律依据。请结合条款事实判断是否适用，"
-                f"不要仅因出现该词语直接作出无效结论：\n\n{result['text']}"
-            ),
-        })
-        trace.append({"round": 0, "tool": "coverage_prefetch", "query": rule["query"],
-                      "hits": result["labels"], "evidence": result.get("evidence", [])})
+    coverage_prefetched = False
 
     for rnd in range(1, max_rounds + 1):
-        # 第一轮强制检索，避免模型直接按参数记忆作答；后续由模型自行决定是否继续检索。
-        tool_choice = (
-            {"type": "function", "function": {"name": "retrieve"}}
-            if rnd == 1 else "auto"
-        )
+        # 首轮即允许模型路由：实体法律问题按 system 纪律必须调用检索；寒暄、功能说明、
+        # 澄清和不涉及法律判断的纯文本任务可以直接回答，避免无意义检索。
         resp = chat(
             messages,
             tools=TOOL_SCHEMAS,
-            tool_choice=tool_choice,
+            tool_choice="auto",
         )
         msg = resp.choices[0].message
 
@@ -275,6 +257,32 @@ def run(query: str, history: list | None = None, max_rounds: int = 10) -> dict:
                 {"round": rnd, "tool": tc.function.name, "query": args.get("query", ""),
                  "hits": result["labels"], "evidence": result.get("evidence", [])}
             )
+
+        # 只有模型已经判断本轮需要工具后，才补充常见易漏风险的候选依据；这样既保留
+        # 合同审查覆盖率，也不会让非法律问题因历史合同中的关键词被提前强制检索。
+        if coverage_rules and not coverage_prefetched:
+            searched_queries = {item.get("query") for item in trace}
+            for rule in coverage_rules:
+                if rule["query"] in searched_queries:
+                    continue
+                result = retrieve(rule["query"])
+                for evidence in result.get("evidence", []):
+                    allowed_evidence.add((evidence["law"], evidence["num"]))
+                messages.append({
+                    "role": "user",
+                    "content": (
+                        f"系统为“{rule['name']}”补充了候选法律依据。请结合条款事实判断是否适用，"
+                        f"不要仅因出现该词语直接作出无效结论：\n\n{result['text']}"
+                    ),
+                })
+                trace.append({
+                    "round": rnd,
+                    "tool": "coverage_prefetch",
+                    "query": rule["query"],
+                    "hits": result["labels"],
+                    "evidence": result.get("evidence", []),
+                })
+            coverage_prefetched = True
 
     # 超轮次仍无答案：返回最后已知信息
     return {"answer": "（达到最大检索轮次，仍未给出最终答案）", "rounds": max_rounds, "trace": trace}
